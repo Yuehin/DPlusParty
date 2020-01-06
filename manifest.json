@@ -1,0 +1,21 @@
+{
+  "manifest_version": 2,
+  "name": "DPlusParty",
+  "version": "0.1",
+  "permissions": [
+    "activeTab",
+    "declarativeContent"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "page_action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [{
+      "matches": ["*://www.disneyplus.com/video/*"],
+      "js": ["jquery-3.4.1.min.js", "content.js"]
+    }
+  ],
+  "web_accessible_resources": ["webrtc.js"]
+}
