@@ -10,15 +10,16 @@
 
 <body>
     <div class="container" style="padding: 5px; width: 250px;">
-        <div>Share the URL below:</div>
-        <div>
+        <div id="share-txt">Share the URL below:</div>
+        <div id="join-txt">Joining an already existing watch party? Just click the 'Join' button!</div>
+        <div id="share-url-div">
             <input id="share-url" type="text" readonly="true" autocomplete="off" style="width: -webkit-fill-available;"
                 autofocus />
         </div>
-        <div style="margin-top: 5px;">
+        <div style="margin-top: 5px;"></div>
             <button type="button" class="btn btn-info" id="copy-btn" style="float: left;">Copy URL</button>
+            <button type="button" class="btn btn-primary" id="join-btn" style="float: right;">Join</button>
            <!-- <button type="button" class="btn btn-primary" id="show-chat" style="float: right;">Show Chat</button> -->
-        </div>
     </div>
 </body>
 

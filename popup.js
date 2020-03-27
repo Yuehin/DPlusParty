@@ -1,23 +1,69 @@
+var url = null;
+var getUrl = null;
+
 $(document).ready(function () {
-    // Send a message to the active tab
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         chrome.tabs.sendMessage(tabs[0].id, { "message": "clicked_popup" });
-        // get URL after 1 second
-        setTimeout(function () {
-            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-                $('#share-url').val(tabs[0].url).focus().select();
-            });
-        }, 1000);
+        if (tabs[0].url.includes('#')) {
+            $('#share-txt').css("visibility", "hidden");
+            $('#share-txt').css("height", "0px");
+            $('#share-url-div').css("visibility", "hidden");
+            $('#share-url-div').css("height", "0px");
+            $('#copy-btn').css("visibility", "hidden");
+        } else {
+            $('#join-txt').css("visibility", "hidden");
+            $('#join-txt').css("height", "0px");
+            $('#join-btn').css("visibility", "hidden");
+            // get URL
+            getUrl = setInterval(getURL, 1000);
+        }
     });
 
+    function getURL() {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            if ((url != null) && (url !== tabs[0].url)) {
+                $('#share-url').val(tabs[0].url).focus().select();
+                clearInterval(getUrl);
+            }
+            if (url == null) {
+                url = tabs[0].url;
+                chrome.tabs.sendMessage(tabs[0].id, { "message": "start_webRTC" });
+            }
+        });
+    }
 
+    chrome.runtime.onMessage.addListener(
+        function (request, sender, sendResponse) {
+            if (request.isHost == true) {
+                // Get URL and show copy functionalities
+                $('#share-txt').css("visibility", "visible");
+                $('#share-txt').css("height", "");
+                $('#share-url-div').css("visibility", "visible");
+                $('#share-url-div').css("height", "");
+                $('#copy-btn').css("visibility", "visible");
 
-    // listen for clicks on the "Copy URL" link
+                $('#join-txt').css("visibility", "hidden");
+                $('#join-txt').css("height", "0px");
+                $('#join-btn').css("visibility", "hidden");
+                chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+                    $('#share-url').val(tabs[0].url).focus().select();
+                });
+            }
+        }
+    );
+
+    // listen for clicks on the "Copy URL" button
     $('#copy-btn').click(function (e) {
-        console.log("click");
         e.stopPropagation();
         e.preventDefault();
         $('#share-url').select();
         document.execCommand('copy');
+    });
+
+    // listen for clicks on the "Join" button
+    $('#join-btn').click(function (e) {
+        chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+            chrome.tabs.sendMessage(tabs[0].id, { "message": "clicked_join" });
+        });
     });
 });
