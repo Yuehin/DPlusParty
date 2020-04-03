@@ -2,7 +2,7 @@
 if (typeof debug !== 'undefined') {
     // the variable is defined
 } else {
-    debug = true;
+    debug = false;
 }
 function log(message) {
     if (debug) {
