@@ -206,11 +206,11 @@ function initialize() {
                     webRTCSend(data);
                 }
             }
-            if (!window.video_element.paused) {
-                mediaPlayer[0].dispatchEvent(spaceKeyPressEvent);
+            if (!video_element.paused) {
+                mediaPlayer.dispatchEvent(spaceKeyPressEvent);
             }
             peers.push(c);
-            log("Connected to: " + c.peer);
+            log('Connected to: ' + c.peer);
         });
 
         // Handle incoming data (messages only since this is the signal sender)
@@ -249,9 +249,10 @@ function join() {
     conn = peer.connect(key);
 
     conn.on('open', function () {
-        log("Connected to: " + conn.peer);
-        if (!window.video_element.paused) {
-            mediaPlayer[0].dispatchEvent(spaceKeyPressEvent);
+        log('Connected to: ' + conn.peer);
+        if (!video_element.paused) {
+            mediaPlayer.dispatchEvent(spaceKeyPressEvent);
+            window.dispatchEvent(new Event('joined'));
         }
     });
     // Handle incoming data (messages only since this is the signal sender)
@@ -275,7 +276,7 @@ function webRTCSend(data,  peerid = -1) {
         for (var i = 0; i < peers.length; i++) {
             if ((peers[i] != null) && ((peers[i].peer == peerid) || (peerid == -1))) {
                 peers[i].send(JSON.stringify(data));
-                log("Sent: " + JSON.stringify(data));
+                log('Sent: ' + JSON.stringify(data));
             } else {
                 log('Data not sent, non-existant peer or data originates from peer');
             }
@@ -283,7 +284,7 @@ function webRTCSend(data,  peerid = -1) {
     } else {
         if (conn && conn.open) {
             conn.send(JSON.stringify(data));
-            log("Sent: " + JSON.stringify(data));
+            log('Sent: ' + JSON.stringify(data));
         } else {
             log('Connection not initialized or closed');
         }
@@ -291,6 +292,9 @@ function webRTCSend(data,  peerid = -1) {
 }
 
 if (location.hash) {
+    // Call join two times (sometimes joining doesn't finish the first call)
+    // TODO: Look into potential network issues
+    join();
     join();
 } else {
     initialize();
@@ -339,15 +343,15 @@ form.addEventListener('submit', () => {
 
 /*******************VIDEO CONTROL******************** */
 var spaceKeyPressEvent = new KeyboardEvent('keydown',{'keyCode':32,'which':32});
-var video_element = document.getElementsByTagName("video")[0];
-var mediaPlayer = document.getElementsByClassName("btm-media-player");
+var video_element = $('video').get(0); 
+var mediaPlayer = $('.btm-media-player').get(0); 
 var findVideo = setInterval(getVideo, 1000);
 function getVideo() {
     if (video_element == null) {
-        video_element = document.getElementsByTagName("video");
+        video_element = $('video').get(0);
     } else {
         clearInterval(findVideo);
-        log("Video is found");
+        log('Video is found');
         
         video_element.onpause = function() {
             if (!isRemote) {
@@ -394,9 +398,9 @@ function handleVideoActions(data) {
     isRemote = true;
     switch (data.action) {
         case 'pause':
-            if (!window.video_element.paused) {
+            if (!video_element.paused) {
                 // send spaceKeyPressEvent to toggle pause
-                mediaPlayer[0].dispatchEvent(spaceKeyPressEvent);
+                mediaPlayer.dispatchEvent(spaceKeyPressEvent);
                 //  TODO: Need better networking logic
                 // For now, host will send out data to all connected peers since
                 // only host knows who is connected
@@ -412,17 +416,17 @@ function handleVideoActions(data) {
                         }
                     }
                 }
-                log("video is sent pause() function");
+                log('video is sent pause() function');
             } else {
                 isRemote = false;
             }
             break;
         case 'play':
-            if (window.video_element.paused) {
-                mediaPlayer[0].dispatchEvent(spaceKeyPressEvent);
+            if (video_element.paused) {
+                mediaPlayer.dispatchEvent(spaceKeyPressEvent);
             } 
-            window.video_element.currentTime = data.timestamp;
-            log("video currentTime is updated");
+            video_element.currentTime = data.timestamp;
+            log('video currentTime is updated');
             //  TODO: Need better networking logic
             // For now, host will send out data to all connected peers since
             // only host knows who is connected
@@ -438,7 +442,7 @@ function handleVideoActions(data) {
                     }
                 }
             }
-            log("video is sent play() function");
+            log('video is sent play() function');
             break;
     }
 }
