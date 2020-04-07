@@ -8,7 +8,7 @@ chrome.runtime.onInstalled.addListener(function (details) {
                 new chrome.declarativeContent.PageStateMatcher({
                     pageUrl: {
                         hostEquals: 'www.disneyplus.com',
-                        pathPrefix: '/video/',
+                        pathContains: '/video/',
                         schemes: ['http', 'https']
                     }
                 })

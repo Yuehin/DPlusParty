@@ -4,9 +4,11 @@ var getUrl = null;
 $(document).ready(function () {
     $(function() {
         $('#donate-btn').click(function() {
-           chrome.tabs.create({url: 'https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=T3W58R6PZTVD4&currency_code=USD&source=url'});
+            chrome.tabs.create({
+               url: 'https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=T3W58R6PZTVD4&item_name=Support+DPlus+Party%27s+server+expenses+and+helping+with+the+development+process+of+new+features%21&currency_code=USD&source=url'
+            });
         });
-      });
+    });
 
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
         chrome.tabs.sendMessage(tabs[0].id, { 'message': 'clicked_popup' });
