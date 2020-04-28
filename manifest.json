@@ -2,8 +2,8 @@
   "manifest_version": 2,
   "name": "DPlus Party",
   "description": "Watch Disney+ (Disney Plus) videos together!",
-  "version": "0.4.4",
-  "icons": { "128": "dplus.png" },
+  "version": "1.0.0",
+  "icons": { "128": "images/dplus.png" },
   "permissions": [
     "activeTab",
     "declarativeContent"
@@ -19,5 +19,5 @@
       "js": ["jquery-3.4.1.min.js", "content.js"]
     }
   ],
-  "web_accessible_resources": ["webrtc.js", "jquery-3.4.1.min.js"]
+  "web_accessible_resources": ["dplusparty.js", "dplus_chat.css", "jquery-3.4.1.min.js"]
 }

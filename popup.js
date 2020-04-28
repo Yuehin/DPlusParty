@@ -10,7 +10,25 @@ $(document).ready(function () {
         });
     });
 
+    function ensureSendMessage(tabId, message, callback) {
+        chrome.tabs.sendMessage(tabId, { ping: true }, function (response) {
+            if (response && response.pong) { // Content script ready
+                chrome.tabs.sendMessage(tabId, message, callback);
+            } else { // No listener on the other end
+                chrome.tabs.executeScript(tabId, { file: "content.js" }, function () {
+                    if (chrome.runtime.lastError) {
+                        console.error(chrome.runtime.lastError);
+                        throw Error("Unable to inject script into tab " + tabId);
+                    }
+                    // OK, now it's injected and ready
+                    chrome.tabs.sendMessage(tabId, message, callback);
+                });
+            }
+        });
+    }
+
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        ensureSendMessage(tabs[0].id, { greeting: "hello" });
         chrome.tabs.sendMessage(tabs[0].id, { 'message': 'clicked_popup' });
         if (tabs[0].url.includes('#')) {
             $('#share-txt').css('visibility', 'hidden');
@@ -20,26 +38,27 @@ $(document).ready(function () {
             $('#copy-btn').css('visibility', 'hidden');
             $('#copy-btn').css('width', '0px');
             $('#copy-btn').css('float', '');
-            $('#donate-btn').css('float', 'left');
         } else {
             $('#join-txt').css('visibility', 'hidden');
             $('#join-txt').css('height', '0px');
             $('#join-btn').css('visibility', 'hidden');
             $('#join-btn').css('width', '0px');
-            // get URL
-            getUrl = setInterval(getURL, 1000);
+            if (getUrl == null) {
+                // get URL
+                getUrl = setInterval(getURL, 1000);
+            }
         }
     });
 
     function getURL() {
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-            if ((url != null) && (url !== tabs[0].url)) {
+            if ((url !== null) && (url !== tabs[0].url)) {
                 $('#share-url').val(tabs[0].url).focus().select();
                 clearInterval(getUrl);
             }
             if (url == null) {
                 url = tabs[0].url;
-                chrome.tabs.sendMessage(tabs[0].id, { 'message': 'start_webRTC' });
+                chrome.tabs.sendMessage(tabs[0].id, { 'message': 'start_dplus' });
             }
         });
     }
@@ -53,10 +72,13 @@ $(document).ready(function () {
                 $('#share-url-div').css('visibility', 'visible');
                 $('#share-url-div').css('height', '');
                 $('#copy-btn').css('visibility', 'visible');
+                $('#copy-btn').css('width', '');
+                $('#copy-btn').css('float', 'right');
 
                 $('#join-txt').css('visibility', 'hidden');
                 $('#join-txt').css('height', '0px');
                 $('#join-btn').css('visibility', 'hidden');
+                $('#join-btn').css('width', '0px');
                 chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
                     $('#share-url').val(tabs[0].url).focus().select();
                 });

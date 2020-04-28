@@ -12,37 +12,50 @@ function log(message) {
 
 var isHost = false;
 var joined = false;
+var dPlusInjected = false;
 
-function injectWebRTC() {
-    // inject js
+function injectDPlus() {
+    // prevent multiple injections
+    if (dPlusInjected) {
+        return;
+    }
+    // inject js and css
     let jQuery = document.createElement('script');
-    jQuery.src = chrome.extension.getURL('jquery-3.4.1.min.js');
     jQuery.type = 'text/javascript';
-    document.getElementsByTagName('head')[0].appendChild(jQuery);
+    jQuery.src = chrome.extension.getURL('jquery-3.4.1.min.js');
+    document.head.appendChild(jQuery);
     
-    let webrtc = document.createElement('script');
-    webrtc.src = chrome.extension.getURL('webrtc.js');
-    webrtc.type = 'text/javascript';
-    document.getElementsByTagName('head')[0].appendChild(webrtc);
+    let dplusparty = document.createElement('script');
+    dplusparty.type = 'text/javascript';
+    dplusparty.src = chrome.extension.getURL('dplusparty.js');
+    document.head.appendChild(dplusparty);
+
+    let chatStyle = document.createElement('link');
+    chatStyle.rel = 'stylesheet';
+    chatStyle.type = 'text/css';
+    chatStyle.href = chrome.extension.getURL('dplus_chat.css');
+    document.head.appendChild(chatStyle);
+
+    dPlusInjected = true;
     log('Extension has loaded');
 }
 
-window.addEventListener('joined', function(){
+window.addEventListener('joined', function() {
         joined = true;
         chrome.runtime.sendMessage({ 'status': 'joined' });
-    }
-);
+});
 
 chrome.runtime.onMessage.addListener(
     function (request, sender, sendResponse) {
+        if(request.ping) { sendResponse({pong: true}); return; }
         if (request.message === 'clicked_join') {
             log('popup clicked');
-            injectWebRTC();
+            injectDPlus();
         }
 
-        if (request.message === 'start_webRTC') {
+        if (request.message === 'start_dplus') {
             log('popup clicked');
-            injectWebRTC();
+            injectDPlus();
             isHost = true;
         }
     

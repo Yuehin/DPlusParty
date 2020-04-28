@@ -84,9 +84,9 @@ parcelRequire=function(e,r,t,n){var i,o="function"==typeof parcelRequire&&parcel
     },{"eventemitter3":"JJlS","./util":"BHXf","./logger":"WOs9","./socket":"wJlv","./mediaconnection":"dbHP","./dataconnection":"GBTQ","./enums":"ZRYf","./api":"in7L"}],"iTK6":[function(require,module,exports) {
     "use strict";Object.defineProperty(exports,"__esModule",{value:!0});var e=require("./util"),r=require("./peer");exports.peerjs={Peer:r.Peer,util:e.util},exports.default=r.Peer,window.peerjs=exports.peerjs,window.Peer=r.Peer;
     },{"./util":"BHXf","./peer":"Hxpd"}]},{},["iTK6"], null)
-    //# sourceMappingURL=/peerjs.min.js.map
 
 var lastPeerId = null;
+var peer = null;
 var isRemote = false;
 var isHost = false;
 var conn = null;
@@ -98,7 +98,13 @@ var peers = [];
  * peer object.
  */
 function initialize() {
+    // Prevent multiple initializations
+    if (peer !== null) {
+        return;
+    }
+
     // Create own peer object with connection to shared PeerJS server
+    // TODO: Add error notification and do not start chat if there is an error
     peer = new Peer(null, {
         host: 'dplus-peerjs.wl.r.appspot.com',
         path: '/dplus',
@@ -116,6 +122,9 @@ function initialize() {
         // Generate hash if needed
         if (!location.hash) {
             location.hash = peer.id;
+            isHost = true;
+            peer.connect(peer.id);
+            injectChat();
         }
         log('ID: ' + peer.id);
         if (location.hash && !isHost) {
@@ -125,10 +134,12 @@ function initialize() {
     peer.on('connection', function (c) {
         c.on('open', function () {
             // Send pause to all currently connected peers
-            for (var i = 0; i < peers.length; i++) {
+            for (let i = 0; i < peers.length; i++) {
                 if ((peers[i] != null)) {
                     const data = {
                         id: peer.id,
+                        from: $('#chat-username').val(),
+                        message: 'paused the video',
                         action: 'pause',
                     };
                     webRTCSend(data);
@@ -143,7 +154,20 @@ function initialize() {
 
         // Handle incoming data (messages only since this is the signal sender)
         c.on('data', function (data) {
-            handleVideoActions(JSON.parse(data))
+            let d = JSON.parse(data);
+            switch (d.action) {
+                case 'message':
+                    insertMessage(d, false);
+                    break;
+                case 'rename':
+                    renameRemoteUser(d);
+                    break;
+                case 'pause':
+                case 'play':
+                default:
+                    handleVideoActions(d);
+                    break;
+            }
         });
 
         c.on('close', function() {
@@ -165,20 +189,39 @@ function initialize() {
  * connection and data received on it.
  */
 function join() {
+    // Prevent multiple joins
+    if (conn !== null) {
+        return;
+    }
+
     // Create connection to destination peer specified in the input 
-    var key = location.hash.split('#')[1];
+    let key = location.hash.split('#')[1];
     conn = peer.connect(key);
 
     conn.on('open', function () {
         log('Connected to: ' + conn.peer);
+        injectChat();
         if (!video_element.paused) {
             mediaPlayer.dispatchEvent(spaceKeyPressEvent);
             window.dispatchEvent(new Event('joined'));
         }
     });
-    // Handle incoming data (messages only since this is the signal sender)
+    // Handle incoming data
     conn.on('data', function (data) {
-        handleVideoActions(JSON.parse(data))
+        let d = JSON.parse(data);
+        switch (d.action) {
+            case 'message':
+                insertMessage(d, false);
+                break;
+            case 'rename':
+                renameRemoteUser(d);
+                break;
+            case 'pause':
+            case 'play':
+            default:
+                handleVideoActions(d);
+                break;
+        }
     });
     conn.on('close', function () {
         log('Connection closed');
@@ -190,11 +233,10 @@ function join() {
 }
 
 function webRTCSend(data,  peerid = -1) {
-    //  TODO: Need better networking logic
-    // For now, host will send out data to all connected peers since
+    // host will send out data to all connected peers since
     // only host knows who is connected
     if (isHost) {
-        for (var i = 0; i < peers.length; i++) {
+        for (let i = 0; i < peers.length; i++) {
             if ((peers[i] != null) && ((peers[i].peer == peerid) || (peerid == -1))) {
                 peers[i].send(JSON.stringify(data));
                 log('Sent: ' + JSON.stringify(data));
@@ -212,52 +254,164 @@ function webRTCSend(data,  peerid = -1) {
     }
 }
 
-if (!location.hash) {
-    isHost = true;
+function insertMessage(data, fromMe) {
+    if (data.message == '') {
+        return false;
+    }
+
+    if (fromMe) {
+        if (data.action === 'play' || data.action === 'pause') {
+            let msgActionHTML = 
+            '<div class="chat-action">' + data.message +
+            '<div class="chat-user usr-local" style="text-align: right;">' +
+               data.from +
+            '</div></div>';
+            $('#chat-messages').append(msgActionHTML);
+        } else {
+            let msgHTML = 
+            '<div class="chat-message-user">' + data.message +
+            '<div class="chat-user usr-local" style="text-align: right;">' +
+                data.from +
+            '</div></div>';
+            $('#chat-messages').append(msgHTML);
+        }
+        webRTCSend(data);
+    } else {
+        if (data.action === 'play' || data.action === 'pause') {
+            let msgActionHTML = 
+            '<div class="chat-action">' + data.message +
+            '<div class="chat-user usr-' + data.id + '" style="text-align: right;">' +
+               data.from +
+            '</div></div>';
+            $('#chat-messages').append(msgActionHTML);
+        } else {
+            let msgRemoteHTML = 
+            '<div class="chat-message-remote">' + data.message +
+            '<div class="chat-user usr-' + data.id + '" style="text-align: right;">' +
+            data.from +
+            '</div></div>';
+            $('#chat-messages').append(msgRemoteHTML);
+        }
+
+        if (isHost) {
+            for (let i = 0; i < peers.length; i++) {
+                // Only send data to peers that are not the originating peer
+                if ((peers[i] != null) && (peers[i].peer != data.id)) {
+                    webRTCSend(data, peers[i].peer);
+                }
+            }
+        }
+    }
+
+    $('#chat-messages').scrollTop($('#chat-messages').prop('scrollHeight'));
+}
+
+function renameRemoteUser(data) {
+    let usrNames = '.usr-' + data.id;
+    for (let i = 0; i <  $(usrNames).length; i++) {
+        $(usrNames).get(i).textContent = data.from;
+    }
+    if (isHost) {
+        for (let i = 0; i < peers.length; i++) {
+            // Only send data to peers that are not the originating peer
+            if ((peers[i] != null) && (peers[i].peer != data.id)) {
+                webRTCSend(data, peers[i].peer);
+            }
+        }
+    }
+}
+
+function saveUserName() {
+    $('#chat-user-info').css('height', '0px');
+    $('#chat-user-info').css('padding', '0px');
+    let usrNames = '.usr-local';
+    for (let i = 0; i <  $(usrNames).length; i++) {
+        $(usrNames).get(i).textContent = $('#chat-username').val();
+    }
+    const data = {
+        id: peer.id,
+        from: $('#chat-username').val(),
+        action: 'rename',
+    };
+    webRTCSend(data);
+    $('#chat-send').focus();
+}
+
+function changeUserName() {
+    $('#chat-user-info').css('height', '');
+    $('#chat-user-info').css('padding', '');
+    $('#chat-username').focus();
+}
+
+function injectChat() {
+    $('#webAppRoot').css('position', 'absolute');
+    $('#webAppRoot').css('top', '0px');
+    $('#webAppRoot').css('right', '300px');
+    $('#webAppRoot').css('left', '0px');
+    $('#webAppRoot').css('zIndex', '1');
+
+    //inject chat
+    let chatHTML = 
+    `
+    <div id="dplus-chat">
+        <div id="chat-header">
+            <div  class="dplus-title" onclick="window.open('https://chrome.google.com/webstore/detail/dplus-party/ckhlohlbolmihakbnlddceackadnodoe','_blank')">DPLUS PARTY</div>
+            <button class="chat-btn" id="profile-button" title="Change Nickname" type="button" onclick="changeUserName()">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M12 5.9c1.16 0 2.1.94 2.1 2.1s-.94 2.1-2.1 2.1S9.9 9.16 9.9 8s.94-2.1 2.1-2.1m0 9c2.97 0 6.1 1.46 6.1 2.1v1.1H5.9V17c0-.64 3.13-2.1 6.1-2.1M12 4C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 9c-2.67 0-8 1.34-8 4v3h16v-3c0-2.66-5.33-4-8-4z"/><path d="M0 0h24v24H0z" fill="none"/></svg>
+            </button>
+        </div>
+        <div id="chat-user-info">
+            <div class="dplus-title" style="margin: 0px 5px;">NICKNAME:</div>
+            <textarea class="input" id="chat-username" placeholder="Set a nickname to join chat..."></textarea>
+            <button class="chat-btn" id="save-button" title="Save" type="button" onclick="saveUserName()">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
+            </button>
+        </div>
+        <div id="chat-box">
+            <div id="chat-messages">
+            </div>
+        </div>
+        <div id="chat-footer">
+            <textarea class="input" id="chat-send" placeholder="Type a message..."></textarea>
+            <button class="chat-btn" id="rating-btn" title="Review DPlus Party" type="button" onclick="window.open('https://chrome.google.com/webstore/detail/dplus-party/ckhlohlbolmihakbnlddceackadnodoe','_blank')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black" width="24px" height="24px"><path d="M0 0h24v24H0zm15.35 6.41l-1.77-1.77c-.2-.2-.51-.2-.71 0L6 11.53V14h2.47l6.88-6.88c.2-.19.2-.51 0-.71z" fill="none"/><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 14v-2.47l6.88-6.88c.2-.2.51-.2.71 0l1.77 1.77c.2.2.2.51 0 .71L8.47 14H6zm12 0h-7.5l2-2H18v2z"/></svg>
+            </button>
+            <button class="chat-btn" id="donate-btn" title="Support DPlus Party" type="button" onclick="window.open('https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=T3W58R6PZTVD4&item_name=Support+DPlus+Party%27s+server+expenses+and+helping+with+the+development+process+of+new+features%21&currency_code=USD&source=url','_blank')">
+                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/><path d="M0 0h24v24H0z" fill="none"/></svg>
+            </button>
+
+        </div>
+    </div>
+    `
+    $('body').append(chatHTML);
+
+    $('#chat-username').keypress(function (event) {
+        // Pressed Enter Key
+        if (event.keyCode === 13) {
+            event.preventDefault();
+            changeUserName();
+        }
+    });
+
+    $('#chat-send').keypress(function (event) {
+        // Pressed Enter Key
+        if (event.keyCode === 13) {
+            event.preventDefault();
+            const data = {
+                id: peer.id,
+                from: $('#chat-username').val(),
+                message: $('#chat-send').val(),
+                action: 'message',
+            };
+            insertMessage(data, true);
+            $('#chat-send').val('');
+        }
+    });
+
+    $('#chat-send').focus();
 }
 
 initialize();
-
-/*
-function insertMessageToDOM(options, isFromMe) {
-    const template = document.querySelector('template[data-template="message"]');
-    const nameEl = template.content.querySelector('.message__name');
-    if (options.emoji || options.name) {
-        nameEl.innerText = options.emoji + ' ' + options.name;
-    }
-    template.content.querySelector('.message__bubble').innerText = options.content;
-    const clone = document.importNode(template.content, true);
-    const messageEl = clone.querySelector('.message');
-    if (isFromMe) {
-        messageEl.classList.add('message--mine');
-    } else {
-        messageEl.classList.add('message--theirs');
-    }
-
-    const messagesEl = document.querySelector('.messages');
-    messagesEl.appendChild(clone);
-
-    // Scroll to bottom
-    messagesEl.scrollTop = messagesEl.scrollHeight - messagesEl.clientHeight;
-}
-
-
-const form = document.querySelector('form');
-form.addEventListener('submit', () => {
-    const input = document.querySelector('input[type="text"]');
-    const value = input.value;
-    input.value = '';
-
-    const data = {
-        name,
-        content: value,
-        emoji,
-    };
-
-    dataChannel.send(JSON.stringify(data));
-
-    insertMessageToDOM(data, true);
-});*/
 
 /*******************VIDEO CONTROL******************** */
 var spaceKeyPressEvent = new KeyboardEvent('keydown',{'keyCode':32,'which':32});
@@ -275,9 +429,11 @@ function getVideo() {
             if (!isRemote) {
                 const data = {
                     id: peer.id,
+                    from: $('#chat-username').val(),
+                    message: 'paused the video',
                     action: 'pause',
                 };
-                webRTCSend(data);
+                insertMessage(data, true);
             }
             isRemote = false;
         };
@@ -286,10 +442,15 @@ function getVideo() {
             if (!isRemote) {
                 const data = {
                     id: peer.id,
+                    from: $('#chat-username').val(),
+                    message: 'played the video at ',
                     action: 'play',
                     timestamp: video_element.currentTime,
                 };
-                webRTCSend(data);
+                let minutes = Math.floor(data.timestamp / 60);   
+                let seconds = Math.floor((data.timestamp) - (minutes * 60)); 
+                data.message = data.message + minutes + ':' + seconds;
+                insertMessage(data, true);
             }
             // isRemote will be reset in onseeking function if this is called from remote data
         };
@@ -301,10 +462,15 @@ function getVideo() {
                 if (!video_element.paused) {
                     const data = {
                         id: peer.id,
+                        from: $('#chat-username').val(),
+                        message: 'played the video at ',
                         action: 'play',
                         timestamp: video_element.currentTime,
                     };
-                    webRTCSend(data);
+                    let minutes = Math.floor(data.timestamp / 60);   
+                    let seconds = Math.floor((data.timestamp) - (minutes * 60)); 
+                    data.message = data.message + minutes + ':' + seconds;
+                    insertMessage(data, true);
                 }
             }
             isRemote = false;
@@ -319,21 +485,6 @@ function handleVideoActions(data) {
             if (!video_element.paused) {
                 // send spaceKeyPressEvent to toggle pause
                 mediaPlayer.dispatchEvent(spaceKeyPressEvent);
-                //  TODO: Need better networking logic
-                // For now, host will send out data to all connected peers since
-                // only host knows who is connected
-                if (isHost) {
-                    for (var i = 0; i < peers.length; i++) {
-                        // Only send data to peers that are not the originating peer
-                        if ((peers[i] != null) && (peers[i].peer != data.id)) {
-                            const data = {
-                                id: peer.id,
-                                action: 'pause',
-                            };
-                            webRTCSend(data, peers[i].peer);
-                        }
-                    }
-                }
                 log('video is sent pause() function');
             } else {
                 isRemote = false;
@@ -345,22 +496,9 @@ function handleVideoActions(data) {
             } 
             video_element.currentTime = data.timestamp;
             log('video currentTime is updated');
-            //  TODO: Need better networking logic
-            // For now, host will send out data to all connected peers since
-            // only host knows who is connected
-            if (isHost) {
-                for (var i = 0; i < peers.length; i++) {
-                    if ((peers[i] != null) && (peers[i].peer != data.id)) {
-                        const data = {
-                            id: peer.id,
-                            action: 'play',
-                            timestamp: video_element.currentTime,
-                        };
-                        webRTCSend(data, peers[i].peer);
-                    }
-                }
-            }
             log('video is sent play() function');
             break;
     }
+
+    insertMessage(data, false);
 }
