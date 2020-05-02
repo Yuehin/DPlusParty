@@ -106,8 +106,9 @@ function initialize() {
     // Create own peer object with connection to shared PeerJS server
     // TODO: Add error notification and do not start chat if there is an error
     peer = new Peer(null, {
-        host: 'dplus-peerjs.wl.r.appspot.com',
+        host: 'dplus-2.uc.r.appspot.com',
         path: '/dplus',
+        secure: true,
         debug: 3
     });
 
@@ -118,35 +119,35 @@ function initialize() {
             peer.id = lastPeerId;
         } else {
             lastPeerId = peer.id;
-        }
-        // Generate hash if needed
-        if (!location.hash) {
-            location.hash = peer.id;
-            isHost = true;
-            peer.connect(peer.id);
-            injectChat();
-        }
-        log('ID: ' + peer.id);
-        if (location.hash && !isHost) {
-            join();
+            // Generate hash if needed
+            if (!location.hash) {
+                location.hash = peer.id;
+                isHost = true;
+                //peer.connect(peer.id);
+                injectChat();
+            }
+            log('ID: ' + peer.id);
+            if (location.hash && !isHost) {
+                join();
+            }
         }
     });
     peer.on('connection', function (c) {
         c.on('open', function () {
-            // Send pause to all currently connected peers
-            for (let i = 0; i < peers.length; i++) {
-                if ((peers[i] != null)) {
-                    const data = {
-                        id: peer.id,
-                        from: $('#chat-username').val(),
-                        message: 'paused the video',
-                        action: 'pause',
-                    };
-                    webRTCSend(data);
-                }
-            }
             if (!video_element.paused) {
                 mediaPlayer.dispatchEvent(spaceKeyPressEvent);
+                // Send pause to all currently connected peers
+                for (let i = 0; i < peers.length; i++) {
+                    if ((peers[i] != null)) {
+                        const data = {
+                            id: peer.id,
+                            from: $('#chat-username').val(),
+                            message: 'paused the video',
+                            action: 'pause',
+                        };
+                        webRTCSend(data);
+                    }
+                }
             }
             peers.push(c);
             log('Connected to: ' + c.peer);
@@ -177,7 +178,13 @@ function initialize() {
 
         c.on('error', function (err) {
             log(err);
-            alert('' + err);
+            const data = {
+                id: peer.id,
+                from: $('#chat-username').val(),
+                action: 'error',
+                message: err
+            };
+            insertMessage(data, true);
         });
     });
 }
@@ -196,7 +203,7 @@ function join() {
 
     // Create connection to destination peer specified in the input 
     let key = location.hash.split('#')[1];
-    conn = peer.connect(key);
+    conn = peer.connect(key, {reliable: true});
 
     conn.on('open', function () {
         log('Connected to: ' + conn.peer);
@@ -228,7 +235,13 @@ function join() {
     });
     conn.on('error', function (err) {
         log(err);
-        alert('' + err);
+        const data = {
+            id: conn.id,
+            from: $('#chat-username').val(),
+            action: 'error',
+            message: err
+        };
+        insertMessage(data, true);
     });
 }
 
@@ -260,7 +273,7 @@ function insertMessage(data, fromMe) {
     }
 
     if (fromMe) {
-        if (data.action === 'play' || data.action === 'pause') {
+        if (data.action === 'play' || data.action === 'pause' || data.action === 'error') {
             let msgActionHTML = 
             '<div class="chat-action">' + data.message +
             '<div class="chat-user usr-local" style="text-align: right;">' +
@@ -277,7 +290,7 @@ function insertMessage(data, fromMe) {
         }
         webRTCSend(data);
     } else {
-        if (data.action === 'play' || data.action === 'pause') {
+        if (data.action === 'play' || data.action === 'pause' || data.action === 'error') {
             let msgActionHTML = 
             '<div class="chat-action">' + data.message +
             '<div class="chat-user usr-' + data.id + '" style="text-align: right;">' +

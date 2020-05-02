@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
-  "name": "DPlus Party",
+  "name": "DPlus Party - Watch Disney Plus with Friends",
   "description": "Watch Disney+ (Disney Plus) videos together!",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "icons": { "128": "images/dplus.png" },
   "permissions": [
     "activeTab",
