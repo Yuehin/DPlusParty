@@ -7,15 +7,18 @@
     z-index: 9999999999;
 }
 
-/*
-#webAppRoot {
-    position: absolute;
-    top: 0px;
-    right: 300px;
-    left: 0px;
-    z-index: 1;
+
+.chat-active {
+    position: absolute !important;
+    top: 0px !important;
+    right: 300px !important;
+    left: 0px !important;
+    z-index: 1 !important;
 }
-*/
+
+.video-resize {
+    width: calc( 100% - 300px) !important;
+}
 
 #dplus-chat > * {
     transition-duration: 0.2s;

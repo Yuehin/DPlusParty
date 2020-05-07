@@ -28,6 +28,7 @@ $(document).ready(function () {
     }
 
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        console.log("hello");
         ensureSendMessage(tabs[0].id, { greeting: "hello" });
         chrome.tabs.sendMessage(tabs[0].id, { 'message': 'clicked_popup' });
         if (tabs[0].url.includes('#')) {
@@ -43,7 +44,9 @@ $(document).ready(function () {
             $('#join-txt').css('height', '0px');
             $('#join-btn').css('visibility', 'hidden');
             $('#join-btn').css('width', '0px');
+            console.log("getUrl");
             if (getUrl == null) {
+                console.log("getUrl2");
                 // get URL
                 getUrl = setInterval(getURL, 1000);
             }
@@ -58,6 +61,7 @@ $(document).ready(function () {
             }
             if (url == null) {
                 url = tabs[0].url;
+                console.log("start_dplus");
                 chrome.tabs.sendMessage(tabs[0].id, { 'message': 'start_dplus' });
             }
         });
