@@ -52,6 +52,20 @@ window.addEventListener('dplus_removed', function() {
     dPlusInjected = false;
 });
 
+window.addEventListener('save_usrname', function(e) {
+    chrome.storage.sync.set({usr_name: e.detail}, function() {
+        log('username is set to ' + e.detail);
+    });
+});
+
+window.addEventListener('get_usrname', function() {
+    chrome.storage.sync.get(['usr_name'], function(result) {
+        if (result) {
+            window.dispatchEvent(new CustomEvent('set_usrname', {detail: result.usr_name}));
+        }
+    });
+});
+
 chrome.runtime.onMessage.addListener(
     function (request, sender, sendResponse) {
         if(request.ping) { sendResponse({pong: true}); return; }

@@ -28,7 +28,6 @@ $(document).ready(function () {
     }
 
     chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-        console.log("hello");
         ensureSendMessage(tabs[0].id, { greeting: "hello" });
         chrome.tabs.sendMessage(tabs[0].id, { 'message': 'clicked_popup' });
         if (tabs[0].url.includes('#')) {
