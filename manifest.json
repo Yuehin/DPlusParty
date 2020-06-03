@@ -20,5 +20,5 @@
       "js": ["jquery-3.4.1.min.js", "content.js"]
     }
   ],
-  "web_accessible_resources": ["dplusparty.js", "dplus_chat.css", "jquery-3.4.1.min.js"]
+  "web_accessible_resources": ["dplusparty.min.js", "dplus_chat.css", "jquery-3.4.1.min.js"]
 }
