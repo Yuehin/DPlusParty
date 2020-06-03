@@ -12,6 +12,8 @@ function log(message) {
 
 var isHost = false;
 var joined = false;
+var joining = false;
+var failed = false;
 var dPlusInjected = false;
 
 function injectDPlus() {
@@ -43,9 +45,21 @@ function injectDPlus() {
     log('Extension has loaded');
 }
 
+window.addEventListener('joining', function() {
+    joining = true;
+    chrome.runtime.sendMessage({ 'status': 'joining' });
+});
+
 window.addEventListener('joined', function() {
-        joined = true;
-        chrome.runtime.sendMessage({ 'status': 'joined' });
+    joining = false;
+    joined = true;
+    chrome.runtime.sendMessage({ 'status': 'joined' });
+});
+
+window.addEventListener('join_failed', function() {
+    joining = false;
+    failed = true;
+    chrome.runtime.sendMessage({ 'status': 'join_failed' });
 });
 
 window.addEventListener('dplus_removed', function() {
@@ -82,7 +96,9 @@ chrome.runtime.onMessage.addListener(
     
         if (request.message === 'clicked_popup') {
             chrome.runtime.sendMessage({ 'isHost': isHost });
+            if (joining) {chrome.runtime.sendMessage({ 'status': 'joining' });}
             if (joined) {chrome.runtime.sendMessage({ 'status': 'joined' });}
+            if (failed) {chrome.runtime.sendMessage({ 'status': 'join_failed' });}
         }
     }
 );

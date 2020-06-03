@@ -1,5 +1,6 @@
 var url = null;
 var getUrl = null;
+var joining = false;
 
 $(document).ready(function () {
     $(function() {
@@ -31,21 +32,15 @@ $(document).ready(function () {
         ensureSendMessage(tabs[0].id, { greeting: "hello" });
         chrome.tabs.sendMessage(tabs[0].id, { 'message': 'clicked_popup' });
         if (tabs[0].url.includes('#')) {
-            $('#share-txt').css('visibility', 'hidden');
-            $('#share-txt').css('height', '0px');
-            $('#share-url-div').css('visibility', 'hidden');
-            $('#share-url-div').css('height', '0px');
-            $('#copy-btn').css('visibility', 'hidden');
+            $('#share-txt').hide();
+            $('#share-url-div').hide();
+            $('#copy-btn').hide();
             $('#copy-btn').css('width', '0px');
             $('#copy-btn').css('float', '');
         } else {
-            $('#join-txt').css('visibility', 'hidden');
-            $('#join-txt').css('height', '0px');
-            $('#join-btn').css('visibility', 'hidden');
-            $('#join-btn').css('width', '0px');
-            console.log("getUrl");
+            $('#join-txt').hide();
+            $('#join-btn').hide();
             if (getUrl == null) {
-                console.log("getUrl2");
                 // get URL
                 getUrl = setInterval(getURL, 1000);
             }
@@ -60,7 +55,6 @@ $(document).ready(function () {
             }
             if (url == null) {
                 url = tabs[0].url;
-                console.log("start_dplus");
                 chrome.tabs.sendMessage(tabs[0].id, { 'message': 'start_dplus' });
             }
         });
@@ -70,26 +64,36 @@ $(document).ready(function () {
         function (request, sender, sendResponse) {
             if (request.isHost == true) {
                 // Get URL and show copy functionalities
-                $('#share-txt').css('visibility', 'visible');
-                $('#share-txt').css('height', '');
-                $('#share-url-div').css('visibility', 'visible');
-                $('#share-url-div').css('height', '');
-                $('#copy-btn').css('visibility', 'visible');
+                $('#share-txt').show();
+                $('#share-url-div').show();
+                $('#copy-btn').show();
                 $('#copy-btn').css('width', '');
                 $('#copy-btn').css('float', 'right');
 
-                $('#join-txt').css('visibility', 'hidden');
-                $('#join-txt').css('height', '0px');
-                $('#join-btn').css('visibility', 'hidden');
-                $('#join-btn').css('width', '0px');
+                $('#join-txt').hide();
+                $('#join-btn').hide();
                 chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
                     $('#share-url').val(tabs[0].url).focus().select();
                 });
             }
-            if (request.status == 'joined') {
-                $('#join-btn').html("Joined");
-                $('#join-btn').addClass('disabled');
-                $('#join-btn').prop('disabled', true);
+            console.log(request);
+            switch (request.status) {
+                case 'joining':
+                    $('#join-button-txt').hide();
+                    $('.loader').show();
+                    break;
+                case 'joined':
+                    $('#join-button-txt').show();
+                    $('.loader').hide();
+                    $('#join-button-txt').html("Joined");
+                    $('#join-btn').addClass('disabled');
+                    $('#join-btn').prop('disabled', true);
+                    break;
+                case 'join_failed':
+                    $('#join-button-txt').show();
+                    $('.loader').hide();
+                    $('#error-msg').show();
+                    break;
             }
         }
     );

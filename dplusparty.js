@@ -144,12 +144,20 @@ parcelRequire=function(e,r,t,n){var i,o="function"==typeof parcelRequire&&parcel
 //////////////////////////////////////////////////////////////////
 */
 var lastPeerId = null;
-var peer = null;
 var isRemote = false;
 var isHost = false;
 var conn = null;
+var connTimeout = null;
+var connRepeatCount = 3;
 var lastPeerId = null;
+var peer = null;
 var peers = [];
+var hideToggle = 0;
+var numParticipants = 1;
+// Randomized strings for when people join the watch party
+var joinedStrings = [];
+// Randomized Disney Quotes
+var quotes = [];
 /**
  * Create the Peer object for our end of the connection.
  *
@@ -193,11 +201,10 @@ function initialize() {
     }
 
     // Create own peer object with connection to shared PeerJS server
-    // TODO: Add error notification and do not start chat if there is an error
     peer = new Peer(null, {
         host: 'dplus-2.uc.r.appspot.com',
         path: '/dplus',
-        debug: 2
+        debug: 0
     });
 
     peer.on('open', function (id) {
@@ -221,23 +228,19 @@ function initialize() {
     });
     peer.on('connection', function (c) {
         if (isHost) {
-            if (!video_element.paused) {
-                mediaPlayer.dispatchEvent(spaceKeyPressEvent);
-                // Send pause to all currently connected peers
-                for (let i = 0; i < peers.length; i++) {
-                    if ((peers[i] != null)) {
-                        const data = {
-                            id: peer.id,
-                            from: $('#chat-username').val(),
-                            message: 'paused the video',
-                            action: 'pause',
-                        };
-                        webRTCSend(data);
-                    }
-                }
-            }
-            peers.push(c);
-            log('Connected to: ' + c.peer);
+            c.on('open', function() {
+                log('Connected to: ' + c.peer);         
+                const joinData = {
+                    id: c.peer,
+                    from: '',
+                    message: 'Someone joined the party, say hello!',
+                    action: 'joined',
+                };
+                insertMessage(joinData, false);
+                // Update number of participants
+                peers.push(c);
+                updateNumberofParticipants(numParticipants + 1);
+            });
 
             // Handle incoming data (messages only since this is the signal sender)
             c.on('data', function (data) {
@@ -261,7 +264,13 @@ function initialize() {
             });
 
             c.on('close', function() {
-                peers.pop(peers[peers.length - 1]);
+                // TODO: make peers into hash table
+                for (let i = 0; i < peers.length; i++) {
+                    if (peers[i].peer === c.peer) {
+                        peers.splice(i, 1);
+                    }
+                }
+                updateNumberofParticipants(numParticipants - 1);
                 log('Connection destroyed');
             });
         }
@@ -293,69 +302,84 @@ function join() {
         return;
     }
 
+    window.dispatchEvent(new Event('joining'));
     // Create connection to destination peer specified in the input 
     let key = location.hash.split('#')[1];
-    conn = peer.connect(key, {reliable: true});
+    // Try establishing a connection 3x just to be safe
+    connTimeout = setInterval(function() {
+        if (connRepeatCount !== 0) {
+            connRepeatCount--;
+            conn = peer.connect(key, {reliable: true});
+            
+            conn.on('open', function () {
+                clearInterval(connTimeout);
+                log('Connected to: ' + conn.peer);
+                injectChat();
+                if (!video_element.paused) {
+                    // Pause the video
+                    mediaPlayer.dispatchEvent(spaceKeyPressEvent);
+                    // Change join button in popup to joined/disable
+                    window.dispatchEvent(new Event('joined'));
+                }
+            });
 
-    conn.on('open', function () {
-        log('Connected to: ' + conn.peer);
-        injectChat();
-        if (!video_element.paused) {
-            mediaPlayer.dispatchEvent(spaceKeyPressEvent);
-            window.dispatchEvent(new Event('joined'));
+            // Handle incoming data
+            conn.on('data', function (data) {
+                let d = JSON.parse(data);
+                if (d.message) {
+                    d.message = d.message.hexDecode();
+                }
+                switch (d.action) {
+                    case 'joined':
+                    case 'message':
+                        insertMessage(d, false);
+                        break;
+                    case 'rename':
+                        renameRemoteUser(d);
+                        break;
+                    case 'update':
+                        if (d.num) {updateNumberofParticipants(d.num);}
+                        break;
+                    case 'pause':
+                    case 'play':
+                    default:
+                        handleVideoActions(d);
+                        break;
+                }
+            });
+
+            conn.on('close', function () {
+                log('Connection closed');
+            });
+        } else {
+            clearInterval(connTimeout);
+            window.dispatchEvent(new Event('join_failed'));
         }
-    });
-    // Handle incoming data
-    conn.on('data', function (data) {
-        let d = JSON.parse(data);
-        if (d.message) {
-            d.message = d.message.hexDecode();
-        }
-        switch (d.action) {
-            case 'message':
-                insertMessage(d, false);
-                break;
-            case 'rename':
-                renameRemoteUser(d);
-                break;
-            case 'ping':
-                const pong = {
-                    id: peer.id,
-                    action: 'pong',
-                };
-                webRTCSend(pong);
-                break;
-            case 'pause':
-            case 'play':
-            default:
-                handleVideoActions(d);
-                break;
-        }
-    });
-    conn.on('close', function () {
-        log('Connection closed');
-    });
+    }, 2000);
 }
 
 function webRTCSend(data,  peerid = -1) {
-    if (data.message) {
-        data.message = data.message.hexEncode();
+    // Create copy so that data does not get modified (i.e encoded more than once)
+    let send = Object.assign({}, data);
+    if (send.message) {
+        send.message = send.message.hexEncode();
     }
     // host will send out data to all connected peers since
     // only host knows who is connected
     if (isHost) {
         for (let i = 0; i < peers.length; i++) {
+            // if function is passed a peerid, then send to only that peer
             if ((peers[i] != null) && ((peers[i].peer == peerid) || (peerid == -1))) {
-                peers[i].send(JSON.stringify(data));
-                log('Sent: ' + JSON.stringify(data));
+                peers[i].send(JSON.stringify(send));
+                log('Sent: ' + JSON.stringify(send));
             } else {
-                log('Data not sent, non-existant peer or data originates from peer');
+                log('Data not sent to invalid peer');
             }
         }
     } else {
         if (conn && conn.open) {
-            conn.send(JSON.stringify(data));
-            log('Sent: ' + JSON.stringify(data));
+            conn.send(JSON.stringify(send));
+            log('Sent: ' + JSON.stringify(send));
         } else {
             log('Connection not initialized or closed');
         }
@@ -384,7 +408,17 @@ function insertMessage(data, fromMe) {
             }
             webRTCSend(data);
         } else {
-            if (data.action === 'play' || data.action === 'pause') {
+            if (data.action === 'joined') {
+                let msgActionHTML = 
+                '<div class="chat-action">' + data.message +
+                '<div class="chat-user usr-' + data.id + '" style="text-align: right;">' +
+                data.from +
+                '</div></div>';
+                $('#chat-messages').append(msgActionHTML);
+                if (!video_element.paused) {
+                    mediaPlayer.dispatchEvent(spaceKeyPressEvent);
+                }
+            } else if (data.action === 'play' || data.action === 'pause') {
                 let msgActionHTML = 
                 '<div class="chat-action">' + data.message +
                 '<div class="chat-user usr-' + data.id + '" style="text-align: right;">' +
@@ -414,6 +448,19 @@ function insertMessage(data, fromMe) {
     }
 }
 
+function updateNumberofParticipants(num) {
+    numParticipants = num;
+    $('#p-num').html(numParticipants.toString());
+    if (isHost) {
+        const numData = {
+            id: peer.id,
+            num: numParticipants,
+            action: 'update',
+        };
+        webRTCSend(numData);
+    }
+}
+
 function renameRemoteUser(data) {
     let usrNames = '.usr-' + data.id;
     for (let i = 0; i <  $(usrNames).length; i++) {
@@ -430,6 +477,7 @@ function renameRemoteUser(data) {
 }
 
 function saveUserName() {
+    $('#dplus-input').css('visibility', 'visible');
     $('#chat-user-info').css('height', '0px');
     $('#chat-user-info').css('padding', '0px');
     let usrNames = '.usr-local';
@@ -446,50 +494,53 @@ function saveUserName() {
     $('#chat-send').focus();
 }
 
-
 function changeUserName() {
+    $('#dplus-input').css('visibility', 'hidden');
     $('#chat-user-info').css('height', '');
     $('#chat-user-info').css('padding', '');
     $('#chat-username').focus();
+}
+
+function toggleChat() {
+    if ($('#dplus-chat').width() !== 0) {
+        $('#chat-hide').hide();
+        $('#chat-show').show();
+        $('#dplus-chat').css('width', '0px');
+        $('#hudson-wrapper').removeClass('video-resize');
+        $('#hudson-wrapper').removeClass('chat-active');
+        $('#hudson-wrapper').addClass('chat-active-hidden');
+        $('#chat-toggle').css("right", '-5px');
+    } else {
+        $('#chat-hide').show();
+        $('#chat-show').hide();
+        $('#dplus-chat').css('width', '');
+        $('#hudson-wrapper').addClass('video-resize');
+        $('#hudson-wrapper').addClass('chat-active');
+        $('#hudson-wrapper').removeClass('chat-active-hidden');
+        $('#chat-toggle').css('right', '');
+    }
 }
 
 function injectChat() {
     //inject chat
     let chatHTML = 
     `
-    <script type='text/javascript'>
-        window.addEventListener('DOMContentLoaded', () => {
-            const button = document.querySelector('#emoji-button');
-            const picker = new EmojiButton({
-                emojiSize: '1.4em',
-                autoHide: false,
-                recentsCount: 10,
-                rows: 5,
-                emojiVersion: '11.0',
-                rootElement: document.querySelector('#dplus-chat'),
-                position: 'top-start',
-                theme: 'dark'});
-
-            picker.on('emoji', emoji => {
-                document.querySelector('#chat-send').value += emoji;
-            });
-
-            button.addEventListener('click', () => {
-                picker.togglePicker(button);
-            });
-        }); 
-    </script>
     <div id="dplus-chat" class="dplus">
+        <div id="chat-toggle" title="Hide Chat" onclick="toggleChat()">
+            <svg id="chat-hide" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M5.88 4.12L13.76 12l-7.88 7.88L8 22l10-10L8 2z"/><path d="M0 0h24v24H0z" fill="none"/></svg>
+            <svg id="chat-show" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M11.67 3.87L9.9 2.1 0 12l9.9 9.9 1.77-1.77L3.54 12z"/><path d="M0 0h24v24H0z" fill="none"/></svg>
+        </div>
         <div id="chat-header">
             <div  class="dplus-title" onclick="window.open('https://chrome.google.com/webstore/detail/dplus-party/ckhlohlbolmihakbnlddceackadnodoe','_blank')">DPLUS PARTY</div>
             <button class="chat-btn" id="profile-button" title="Change Nickname" type="button" onclick="changeUserName()">
                 <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M12 5.9c1.16 0 2.1.94 2.1 2.1s-.94 2.1-2.1 2.1S9.9 9.16 9.9 8s.94-2.1 2.1-2.1m0 9c2.97 0 6.1 1.46 6.1 2.1v1.1H5.9V17c0-.64 3.13-2.1 6.1-2.1M12 4C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 9c-2.67 0-8 1.34-8 4v3h16v-3c0-2.66-5.33-4-8-4z"/><path d="M0 0h24v24H0z" fill="none"/></svg>
             </button>
+            <div id="p-container"><span>Participants:</span><span id="p-num">1</span></div>
         </div>
         <div id="chat-user-info">
             <div class="dplus-title" style="margin: 0px 5px;">NICKNAME:</div>
-            <textarea class="input" id="chat-username" placeholder="Set a nickname to join chat..."></textarea>
-            <button class="chat-btn" id="save-button" title="Save" type="button" onclick="saveUserName()">
+            <textarea class="input" id="chat-username" placeholder="Let your conscience be your guide.."></textarea>
+            <button class="chat-btn dp-rh" id="save-button" title="Save" type="button" onclick="saveUserName()">
                 <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/></svg>
             </button>
         </div>
@@ -498,16 +549,21 @@ function injectChat() {
             </div>
         </div>
         <div id="chat-footer">
-            <textarea class="input" id="chat-send" placeholder="Type a message..."></textarea>
-            <button class="chat-btn" id="rating-btn" title="Review DPlus Party" type="button" onclick="window.open('https://chrome.google.com/webstore/detail/dplus-party/ckhlohlbolmihakbnlddceackadnodoe','_blank')">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="black" width="24px" height="24px"><path d="M0 0h24v24H0zm15.35 6.41l-1.77-1.77c-.2-.2-.51-.2-.71 0L6 11.53V14h2.47l6.88-6.88c.2-.19.2-.51 0-.71z" fill="none"/><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 14v-2.47l6.88-6.88c.2-.2.51-.2.71 0l1.77 1.77c.2.2.2.51 0 .71L8.47 14H6zm12 0h-7.5l2-2H18v2z"/></svg>
-            </button>
-            <button class="chat-btn" id="donate-btn" title="Support DPlus Party" type="button" onclick="window.open('https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=T3W58R6PZTVD4&item_name=Support+DPlus+Party%27s+server+expenses+and+helping+with+the+development+process+of+new+features%21&currency_code=USD&source=url','_blank')">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/><path d="M0 0h24v24H0z" fill="none"/></svg>
-            </button>
-            <button class="chat-btn" id="emoji-button" title="Insert Emoticon">
-                <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
-            </button>
+            <div id="dplus-input" style="display: flex; visibility: hidden;">
+                <textarea class="input" id="chat-send" placeholder="Send a message..."></textarea>
+                <button class="chat-btn dp-rh" id="emoji-button" title="Insert Emoticon">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M0 0h24v24H0z" fill="none"/><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                </button>
+            </div>
+            <div id="kofi" style="text-align:right; margin: 0 5px;">
+                <div class="btn-container">
+                    <a title="Support me on ko-fi.com" class="kofi-button" style="background-color:#5784a2;" href="https://ko-fi.com/Q5Q41QKG2" target="_blank">
+                        <span class="kofitext">
+                            <img src="https://storage.ko-fi.com/cdn/cup-border.png" class="kofiimg">Support DPlus Party
+                        </span>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
     `
@@ -515,6 +571,7 @@ function injectChat() {
     $('#hudson-wrapper').addClass('video-resize');
     $('#app_body_content').append(chatHTML);
 
+    // Emoji functions
     const button = document.querySelector('#emoji-button');
     const picker = new EmojiButton({
         emojiSize: '1.4em',
@@ -534,6 +591,22 @@ function injectChat() {
       picker.togglePicker(button);
     });
 
+    // Show/Hide toggle button Functions
+    $('#app_index').mousemove( function() {
+        clearTimeout(hideToggle);
+        document.getElementById('chat-toggle').style.display = 'block';
+        hideToggle = setTimeout(function() { 
+                document.getElementById('chat-toggle').style.display = 'none';
+            }, 3000);
+    });
+
+    $('#chat-toggle').mouseover( function() {
+        if (hideToggle) {
+            clearTimeout(hideToggle);
+        }
+    });
+
+    // Enter Key Function Overrides
     $('#chat-send').keypress(function (event) {
         // Pressed Enter Key
         if (event.keyCode === 13) {
