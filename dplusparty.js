@@ -172,7 +172,6 @@ var quotes = [];
 // (Parsing emojis without hex results in an out of bounds error when sending through PeerJS)
 String.prototype.hexEncode = function() {
     var hex;
-
     var result = '';
     for (let i = 0; i < this.length; i++) {
         hex = this.charCodeAt(i).toString(16);
@@ -204,7 +203,21 @@ function initialize() {
     peer = new Peer(null, {
         host: 'dplus-2.uc.r.appspot.com',
         path: '/dplus',
-        debug: 0
+        config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' },
+                                { 'urls': 'stun:stun1.l.google.com:19302' },
+                                { 'urls': 'stun:stun2.l.google.com:19302' },
+                                { 'urls': 'stun:stun3.l.google.com:19302' },
+                                { 'urls': 'stun:stun4.l.google.com:19302' },
+                                { 'urls': 'stun:stun.ekiga.net' },
+                                { 'urls': 'stun:stun.ideasip.com' },
+                                { 'urls': 'stun:stun.rixtelecom.se' },
+                                { 'urls': 'stun:stun.schlund.de' },
+                                { 'urls': 'stun:stun.stunprotocol.org:3478' },
+                                { 'urls': 'stun:stun.voiparound.com' },
+                                { 'urls': 'stun:stun.voipbuster.com' },
+                                { 'urls': 'stun:stun.voipstunt.com' },
+                                { 'urls': 'stun:stun.voxgratia.org' }]},
+        debug: 4
     });
 
     peer.on('open', function (id) {
@@ -309,7 +322,14 @@ function join() {
     connTimeout = setInterval(function() {
         if (connRepeatCount !== 0) {
             connRepeatCount--;
-            conn = peer.connect(key, {reliable: true});
+            // last resort, reconnect Peer
+            if (connRepeatCount == 0) {
+                peer.reconnect();
+                conn = peer.connect(key, {reliable: true});
+            }
+            else {
+                conn = peer.connect(key, {reliable: true});
+            }
             
             conn.on('open', function () {
                 clearInterval(connTimeout);
@@ -400,7 +420,7 @@ function insertMessage(data, fromMe) {
                 $('#chat-messages').append(msgActionHTML);
             } else {
                 let msgHTML = 
-                '<div class="chat-message-user">' + data.message +
+                '<div class="chat-message-user selectable">' + data.message +
                 '<div class="chat-user usr-local" style="text-align: right;">' +
                     data.from +
                 '</div></div>';
@@ -427,7 +447,7 @@ function insertMessage(data, fromMe) {
                 $('#chat-messages').append(msgActionHTML);
             } else {
                 let msgRemoteHTML = 
-                '<div class="chat-message-remote">' + data.message +
+                '<div class="chat-message-remote selectable">' + data.message +
                 '<div class="chat-user usr-' + data.id + '" style="text-align: right;">' +
                 data.from +
                 '</div></div>';

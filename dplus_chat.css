@@ -138,6 +138,14 @@ a.kofi-button:active {
     --z-Index: 9999999999;
 }
 
+.selectable {
+    -moz-user-select: text;
+    -khtml-user-select: text;
+    -webkit-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+}
+
 #dplus-chat {
     background-color: #131313;
     width: var(--chat-width);

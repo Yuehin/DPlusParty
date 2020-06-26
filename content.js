@@ -31,7 +31,7 @@ function injectDPlus() {
     let dplusparty = document.createElement('script');
     dplusparty.setAttribute = ('class','dplus');
     dplusparty.type = 'text/javascript';
-    dplusparty.src = chrome.extension.getURL('dplusparty.min.js');
+    dplusparty.src = chrome.extension.getURL('dplusparty.js');
     document.head.appendChild(dplusparty);
 
     let chatStyle = document.createElement('link');

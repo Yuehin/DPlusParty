@@ -1,5 +1,6 @@
 var url = null;
 var getUrl = null;
+var  urlUpdated = false;
 var joining = false;
 
 $(document).ready(function () {
@@ -51,6 +52,8 @@ $(document).ready(function () {
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
             if ((url !== null) && (url !== tabs[0].url)) {
                 $('#share-url').val(tabs[0].url).focus().select();
+                urlUpdated = true;
+                $('#alt-share-txt').show();
                 clearInterval(getUrl);
             }
             if (url == null) {
@@ -75,8 +78,9 @@ $(document).ready(function () {
                 chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
                     $('#share-url').val(tabs[0].url).focus().select();
                 });
+            } else {
+                $('#alt-share-txt').hide();
             }
-            console.log(request);
             switch (request.status) {
                 case 'joining':
                     $('#join-button-txt').hide();
@@ -111,5 +115,10 @@ $(document).ready(function () {
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
             chrome.tabs.sendMessage(tabs[0].id, { 'message': 'clicked_join' });
         });
+    });
+
+    // listen for clicks on 'alt-share-txt'
+    $('#alt-share-txt').click(function (e) {
+        window.location.href = "popup_alt.html";
     });
 });

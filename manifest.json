@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "DPlus Party - Watch Disney Plus with Friends",
   "description": "Watch Disney+ (Disney Plus) videos together!",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "icons": { "128": "images/dplus.png" },
   "permissions": [
     "activeTab",
@@ -15,10 +15,5 @@
   "page_action": {
     "default_popup": "popup.html"
   },
-  "content_scripts": [{
-      "matches": ["*://www.disneyplus.com/*"],
-      "js": ["jquery-3.4.1.min.js", "content.js"]
-    }
-  ],
-  "web_accessible_resources": ["dplusparty.min.js", "dplus_chat.css", "jquery-3.4.1.min.js"]
+  "web_accessible_resources": ["dplusparty.js", "dplus_chat.css", "jquery-3.4.1.min.js"]
 }
