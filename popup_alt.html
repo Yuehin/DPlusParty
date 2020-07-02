@@ -2,25 +2,42 @@
 <html>
 
 <head>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"
-        integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css"
+        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
     <script type='text/javascript' src='jquery-3.4.1.min.js'></script>
     <script src="popup_alt.js"></script>
+    <style>
+        html {
+            font-size: 14px;
+        }
+
+        .card {
+            margin: 0px !important;
+        }
+    </style>
 </head>
 
 <body>
-    <div class="container" style="padding: 5px; width: 250px;">
-        <div id="share-txt">
-            Share the video URL, then once your friend loads the video, share the session ID and have them add it to the end of the video URL! (They must also have this extension installed + click on the extension button to join)
-        </div>
-        <div id="share-url-div">Video URL:
-            <input id="share-url" type="text" readonly="true" autocomplete="off" style="width: -webkit-fill-available;" autofocus/>
-        </div>
-        <div id="share-url-div">Session ID:
-            <input id="share-session" type="text" readonly="true" autocomplete="off" style="width: -webkit-fill-available;" autofocus/>
-        </div>
-        <div style="margin-top: 5px; height: 40px">
-            <button type="button" class="btn btn-light" id="donate-btn" style="float: left;">Support DPlus</button>
+    <div class="container" style="padding: 5px; width: 350px;">
+        <div class="card bg-light mb-3">
+            <div class="card-header"> Due to how Disney+ redirects links for different regions, starting a watch party internationally has an additional step. To watch with someone in a different region:</div>
+            <div class="card-body">
+                <div id="share-txt"> 
+                    <div>1) Share the video URL</div>
+                    <div>2) Once your friend loads the video, share the session ID and have them add it to the end of the video URL</div>
+                    <div>(They must also have this extension installed and click on the extension button to join)</div>
+                </div>
+                </p>
+                <div id="share-url-div">Video URL:
+                    <input id="share-url" type="text" readonly="true" autocomplete="off" style="width: -webkit-fill-available;" autofocus/>
+                </div>
+                <div id="share-url-div">Session ID:
+                    <input id="share-session" type="text" readonly="true" autocomplete="off" style="width: -webkit-fill-available;" autofocus/>
+                </div>
+                <div style="margin-top: 5px; height: 40px">
+                    <button type="button" class="btn btn-secondary" id="donate-btn" style="float: left;">Support DPlus</button>
+                </div>
+            </div>
         </div>
     </div>
 </body>
