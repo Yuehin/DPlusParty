@@ -234,13 +234,13 @@ a.kofi-button:active {
 
 #chat-box {
     background-color: #131313;
-    height: calc(100% - 135px);
+    height: calc(100% - 155px);
     position: relative;
     width: 100%;
 }
 
 #chat-footer {
-    height: 95px;
+    height: 115px;
     width: 100%;
 }
 
