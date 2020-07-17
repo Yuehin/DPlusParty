@@ -1,7 +1,5 @@
 // debugging logs
-if (typeof debug !== 'undefined') {
-    // the variable is defined
-} else {
+if (typeof debug === 'undefined') {
     debug = false;
 }
 function log(message, argument = -1) {
@@ -14,7 +12,7 @@ function log(message, argument = -1) {
     }
 }
 
-/********************PEERJS 1.2.0********************/
+/********************PEERJS 1.3.1********************/
 //////////////////////////////////////////////////////
 /*! *****************************************************************************
     Copyright (c) 2015 Michelle Bu and Eric Zhang, http://peerjs.com
@@ -154,6 +152,10 @@ var peer = null;
 var peers = [];
 var hideToggle = 0;
 var numParticipants = 1;
+// Interval for checking new video after current video is ended
+var newVid = null;
+var currentURL = null;
+var sessionID = null;
 // Randomized strings for when people join the watch party
 var joinedStrings = [];
 // Randomized Disney Quotes
@@ -191,6 +193,64 @@ String.prototype.hexDecode = function() {
     return back;
 }
 
+/********************GLOBAL FUNCTIONS********************/
+//////////////////////////////////////////////////////////
+// checkUpdates() is called every few milliseconds to check the status of the disney+ party
+function checkUpdates() {
+    if ($('#hudson-wrapper').hasClass('video_view--mini')) {
+        newVid = setInterval(isNewVid, 1000);
+        // Shift classes to keep chat without blocking webpage elements
+        $('#hudson-wrapper').removeClass('chat-active');
+        $('#hudson-wrapper').removeClass('video-resize');
+        $('#webAppRoot').addClass('chat-active');
+        videoWasMini = true;
+    } else if ($('#hudson-wrapper').hasClass('video_view--hidden') && (window.location.href.indexOf("/video/") === -1)) {
+        // Remove extension if video is gone
+        $('#app_index').off();
+        $('.dplus').empty();
+        $('.dplus').remove();
+        $('#webAppRoot').removeClass('chat-active');
+        $('#hudson-wrapper').removeClass('chat-active');
+        $('#hudson-wrapper').removeClass('video-resize');
+        clearInterval(updates);
+        window.dispatchEvent(new Event('dplus_removed'));
+    } else if (videoWasMini) {
+        // Back to normal
+        $('#webAppRoot').removeClass('chat-active');
+        $('#hudson-wrapper').addClass('chat-active');
+        $('#hudson-wrapper').addClass('video-resize');
+        videoWasMini = false;
+        clearInterval(updates);
+    }
+}
+
+function isNewVid()
+{
+    if (currentURL === null) { 
+        currentURL = window.location.href;
+        sessionID = currentURL.split("#")[1];
+    }
+    if (currentURL != window.location.href) {
+        // Remove extension
+        $('#app_index').off();
+        $('.dplus').empty();
+        $('.dplus').remove();
+        $('#webAppRoot').removeClass('chat-active');
+        $('#hudson-wrapper').removeClass('chat-active');
+        $('#hudson-wrapper').removeClass('video-resize');
+        clearInterval(updates);
+        window.dispatchEvent(new Event('dplus_removed'));
+        // Reinitialize extension
+        currentURL = window.location.href;
+        window.location.hash = sessionID;
+        peer = null;
+        conn = null;
+        getServers();
+        clearInterval(newVid);
+    }
+
+}
+
 /********************CONNECTIVITY********************/
 //////////////////////////////////////////////////////
 function initialize(data) {
@@ -199,19 +259,22 @@ function initialize(data) {
         return;
     }
 
+    var servers = [{ 'urls': 'stun:stun.l.google.com:19302' },
+                   { 'urls': 'stun:stun1.l.google.com:19302' },
+                   { 'urls': 'stun:stun2.l.google.com:19302' },
+                   { 'urls': 'stun:stun3.l.google.com:19302' },
+                   { 'urls': 'stun:stun4.l.google.com:19302' }];
+    for (let i = 0; i < data.ice_servers.length; i++) {
+        servers.push({ 'urls': data.ice_servers[i].urls,
+                       'username': data.ice_servers[i].username,
+                       'credential': data.ice_servers[i].credential});
+    }
+
     // Create own peer object with connection to shared PeerJS server
     peer = new Peer(lastPeerId, {
         host: 'dplus-2.uc.r.appspot.com',
         path: '/dplus',
-        config: {'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' },
-                                { 'urls': 'stun:stun1.l.google.com:19302' },
-                                { 'urls': 'stun:stun2.l.google.com:19302' },
-                                { 'urls': 'stun:stun3.l.google.com:19302' },
-                                { 'urls': 'stun:stun4.l.google.com:19302' },
-                                { 'urls': data.ice_servers[2].urls,
-                                  'username': data.ice_servers[2].username,
-                                  'credential': data.ice_servers[2].credential
-                                }]},
+        config: {'iceServers': servers},
         debug: 4
     });
 
@@ -224,13 +287,13 @@ function initialize(data) {
             lastPeerId = peer.id;
         }
         // Generate hash if needed
-        if (!location.hash) {
-            location.hash = peer.id;
+        if (!window.location.hash) {
+            window.location.hash = peer.id;
             isHost = true;
             injectChat();
         }
         log('ID: ' + peer.id);
-        if (location.hash && !isHost) {
+        if (window.location.hash && !isHost) {
             join();
         }
     });
@@ -312,7 +375,7 @@ function join() {
 
     window.dispatchEvent(new Event('joining'));
     // Create connection to destination peer specified in the input 
-    let key = location.hash.split('#')[1];
+    let key = window.location.hash.split('#')[1];
     // Try establishing a connection 3x just to be safe
     connTimeout = setInterval(function() {
         if (connRepeatCount !== 0) {
@@ -321,10 +384,10 @@ function join() {
             if (connRepeatCount == 0) {
                 peer.disconnect();
                 peer.reconnect();
-                conn = peer.connect(key, {reliable: true});
+                conn = peer.connect(key);
             }
             else {
-                conn = peer.connect(key, {reliable: true});
+                conn = peer.connect(key);
             }
             
             conn.on('open', function () {
@@ -365,6 +428,10 @@ function join() {
             });
 
             conn.on('close', function () {
+                let msgActionHTML = 
+                '<div class="chat-action">Host Disconnected</div></div>';
+                $('#chat-messages').append(msgActionHTML);
+                updateNumberofParticipants(0);
                 log('Connection closed');
             });
         } else {
@@ -672,9 +739,9 @@ getServers();
 var spaceKeyPressEvent = new KeyboardEvent('keydown',{'keyCode':32,'which':32});
 var video_element = $('video').get(0); 
 var mediaPlayer = $('.btm-media-player').get(0); 
-var findVideo = setInterval(getVideo, 1000);
-var videoView = setInterval(videoViewChanged, 500);
 var videoWasMini = false;
+var findVideo = setInterval(getVideo, 1000);
+var updates = setInterval(checkUpdates, 500);
 function getVideo() {
     if (video_element == null) {
         video_element = $('video').get(0);
@@ -806,32 +873,4 @@ function handleVideoActions(data) {
     }
 
     insertMessage(data, false);
-}
-
-function videoViewChanged() {
-    if ($('#hudson-wrapper').hasClass('video_view--mini')) {
-        // Shift classes to keep chat without blocking webpage elements
-        $('#hudson-wrapper').removeClass('chat-active');
-        $('#hudson-wrapper').removeClass('video-resize');
-        $('#webAppRoot').addClass('chat-active');
-        videoWasMini = true;
-    } else if ($('#hudson-wrapper').hasClass('video_view--hidden') && (location.href.indexOf("/video/") === -1)) {
-        // Remove extension if video is gone
-        $('#app_index').off();
-        $('.dplus').empty();
-        $('.dplus').remove();
-        $('#webAppRoot').removeClass('chat-active');
-        $('#hudson-wrapper').removeClass('chat-active');
-        $('#hudson-wrapper').removeClass('video-resize');
-        clearInterval(videoView);
-        window.dispatchEvent(new Event('dplus_removed'));
-    } else {
-        if (videoWasMini) {
-            // Back to normal
-            $('#webAppRoot').removeClass('chat-active');
-            $('#hudson-wrapper').addClass('chat-active');
-            $('#hudson-wrapper').addClass('video-resize');
-            videoWasMini = false;
-        }
-    }
 }

@@ -1,7 +1,5 @@
 // debugging logs
-if (typeof debug !== 'undefined') {
-    // the variable is defined
-} else {
+if (typeof debug === 'undefined') {
     debug = false;
 }
 function log(message) {
