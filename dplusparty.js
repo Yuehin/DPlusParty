@@ -152,10 +152,14 @@ var peer = null;
 var peers = [];
 var hideToggle = 0;
 var numParticipants = 1;
+// for handling next video
+var remoteClickNext = false;
+var remotePeerID = null;
 // Interval for checking new video after current video is ended
 var newVid = null;
 var currentURL = null;
 var sessionID = null;
+var newVideo = false;
 // Randomized strings for when people join the watch party
 var joinedStrings = [];
 // Randomized Disney Quotes
@@ -198,7 +202,33 @@ String.prototype.hexDecode = function() {
 // checkUpdates() is called every few milliseconds to check the status of the disney+ party
 function checkUpdates() {
     if ($('#hudson-wrapper').hasClass('video_view--mini')) {
-        newVid = setInterval(isNewVid, 1000);
+        if (newVid == null) { newVid = setInterval(isNewVid, 1000); }
+        // Bind play next button
+        $('.sc-gipzik.bOajCw.sc-eInJlc.lhfNdP.play').click(function() {
+            // if remote user clicked play next and is host, send to peers
+            // if not host, do not send anything out
+            if (remoteClickNext && isHost) {
+                const data = {
+                    id: remotePeerID,
+                    next: true,
+                    action: 'update',
+                };
+                for (let i = 0; i < peers.length; i++) {
+                    // Only send data to peers that are not the originating peer
+                    if ((peers[i] != null) && (peers[i].peer != data.id)) {
+                        webRTCSend(data, peers[i].peer);
+                    }
+                }
+            } else if (remotePeerID == null) {
+            // else if this user clicked play next as is not host, send out to host
+                const data = {
+                    id: peer.id,
+                    next: true,
+                    action: 'update',
+                };
+                webRTCSend(data);
+            }
+        });
         // Shift classes to keep chat without blocking webpage elements
         $('#hudson-wrapper').removeClass('chat-active');
         $('#hudson-wrapper').removeClass('video-resize');
@@ -213,42 +243,46 @@ function checkUpdates() {
         $('#hudson-wrapper').removeClass('chat-active');
         $('#hudson-wrapper').removeClass('video-resize');
         clearInterval(updates);
+        clearInterval(newVid);
+        updates = null;
+        newVid = null;
         window.dispatchEvent(new Event('dplus_removed'));
+        if (isHost) {
+            for (let i = 0; i < peers.length; i++) {
+                peers[i].close();
+            }
+        } else {
+            conn.close();
+        }
+        peer.disconnect();
     } else if (videoWasMini) {
         // Back to normal
         $('#webAppRoot').removeClass('chat-active');
         $('#hudson-wrapper').addClass('chat-active');
         $('#hudson-wrapper').addClass('video-resize');
         videoWasMini = false;
-        clearInterval(updates);
     }
 }
 
 function isNewVid()
 {
-    if (currentURL === null) { 
-        currentURL = window.location.href;
-        sessionID = currentURL.split("#")[1];
-    }
-    if (currentURL != window.location.href) {
-        // Remove extension
-        $('#app_index').off();
-        $('.dplus').empty();
-        $('.dplus').remove();
-        $('#webAppRoot').removeClass('chat-active');
-        $('#hudson-wrapper').removeClass('chat-active');
-        $('#hudson-wrapper').removeClass('video-resize');
-        clearInterval(updates);
-        window.dispatchEvent(new Event('dplus_removed'));
-        // Reinitialize extension
-        currentURL = window.location.href;
+    if (currentURL != window.location.href && (window.location.href.indexOf("/video/") > 0)) {
+        let msgActionHTML = 
+        '<div class="chat-action">Next Video Started</div></div>';
+        $('#chat-messages').append(msgActionHTML);
+        // Rebind variables to new video
+        video_element = null;
+        mediaPlayer = null;
+        newVideo = true;
+        // Restore session
+        $('#hudson-wrapper').addClass('chat-active');
+        $('#hudson-wrapper').addClass('video-resize');
         window.location.hash = sessionID;
-        peer = null;
-        conn = null;
-        getServers();
+        currentURL = window.location.href;
+        findVideo = setInterval(getVideo, 1000);
         clearInterval(newVid);
+        newVid = null;
     }
-
 }
 
 /********************CONNECTIVITY********************/
@@ -289,11 +323,14 @@ function initialize(data) {
         // Generate hash if needed
         if (!window.location.hash) {
             window.location.hash = peer.id;
+            sessionID = window.location.hash;
             isHost = true;
+            currentURL = window.location.href;
             injectChat();
         }
         log('ID: ' + peer.id);
         if (window.location.hash && !isHost) {
+            sessionID = window.location.hash;
             join();
         }
     });
@@ -326,6 +363,13 @@ function initialize(data) {
                     case 'rename':
                         renameRemoteUser(d);
                         break;
+                    case 'update':
+                        if (d.hasOwnProperty('next')) {
+                            remoteClickNext = true;
+                            remotePeerID = d.id;
+                            $('.sc-gipzik.bOajCw.sc-eInJlc.lhfNdP.play').click();
+                        }
+                        break;
                     case 'pause':
                     case 'play':
                     default:
@@ -349,11 +393,11 @@ function initialize(data) {
 
     peer.on('disconnected', function () {
         log('Connection lost. Please reconnect');
-
+        
         // Workaround for peer.reconnect deleting previous id
         peer.id = lastPeerId;
         peer._lastServerId = lastPeerId;
-        peer.reconnect();
+        if (window.location.href.indexOf("/video/") > 0) { peer.reconnect(); }
     });
 
     peer.on('error', function (err) {
@@ -392,6 +436,7 @@ function join() {
             
             conn.on('open', function () {
                 clearInterval(connTimeout);
+                connTimeout = null;
                 log('Connected to: ' + conn.peer);
                 injectChat();
                 if (!video_element.paused) {
@@ -417,7 +462,14 @@ function join() {
                         renameRemoteUser(d);
                         break;
                     case 'update':
-                        if (d.num) {updateNumberofParticipants(d.num);}
+                        if (d.hasOwnProperty('num')) {
+                            updateNumberofParticipants(d.num);
+                        }
+                        if (d.hasOwnProperty('next')) {
+                            remoteClickNext = true;
+                            remotePeerID = d.id;
+                            $('.sc-gipzik.bOajCw.sc-eInJlc.lhfNdP.play').click();
+                        }
                         break;
                     case 'pause':
                     case 'play':
@@ -436,6 +488,7 @@ function join() {
             });
         } else {
             clearInterval(connTimeout);
+            connTimeout = null;
             window.dispatchEvent(new Event('join_failed'));
         }
     }, 2000);
@@ -745,8 +798,10 @@ var updates = setInterval(checkUpdates, 500);
 function getVideo() {
     if (video_element == null) {
         video_element = $('video').get(0);
+        mediaPlayer = $('.btm-media-player').get(0); 
     } else {
         clearInterval(findVideo);
+        findVideo = null;
         log('Video is found');
         
         video_element.onpause = function() {
