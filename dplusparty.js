@@ -279,9 +279,6 @@ function isNewVid()
         currentURL = window.location.href;
         findVideo = setInterval(getVideo, 1000);
         clearInterval(newVid);
-        newVid = null;
-        $('#hudson-wrapper').addClass('chat-active');
-        $('#hudson-wrapper').addClass('video-resize');
     }
 }
 
@@ -324,13 +321,14 @@ function initialize(data) {
         if (!window.location.hash) {
             window.location.hash = peer.id;
             sessionID = window.location.hash;
-            isHost = true;
             currentURL = window.location.href;
+            isHost = true;
             injectChat();
         }
         log('ID: ' + peer.id);
         if (window.location.hash && !isHost) {
             sessionID = window.location.hash;
+            currentURL = window.location.href;
             join();
         }
     });
@@ -442,6 +440,11 @@ function join() {
                 if (!video_element.paused) {
                     // Pause the video
                     mediaPlayer.dispatchEvent(spaceKeyPressEvent);
+                    // Reset video player if it is minified
+                    if ($('#hudson-wrapper').hasClass('video_view--mini')) {
+                        $('#hudson-wrapper').removeClass('video_view--mini');
+                        $('#hudson-wrapper').addClass('video_view--theater');
+                    }
                     // Change join button in popup to joined/disable
                     window.dispatchEvent(new Event('joined'));
                 }
@@ -557,6 +560,11 @@ function insertMessage(data, fromMe) {
                 $('#chat-messages').append(msgActionHTML);
                 if (!video_element.paused) {
                     mediaPlayer.dispatchEvent(spaceKeyPressEvent);
+                    // Reset video player if it is minified
+                    if ($('#hudson-wrapper').hasClass('video_view--mini')) {
+                        $('#hudson-wrapper').removeClass('video_view--mini');
+                        $('#hudson-wrapper').addClass('video_view--theater');
+                    }
                 }
             } else if (data.action === 'play' || data.action === 'pause') {
                 let msgActionHTML = 
@@ -660,7 +668,6 @@ function toggleChat() {
         $('#chat-toggle').css('right', '');
     }
 }
-
 function onReview(okclicked) {
     if (okclicked) {
         window.open('https://chrome.google.com/webstore/detail/dplus-party/ckhlohlbolmihakbnlddceackadnodoe','_blank');
@@ -834,6 +841,9 @@ function getVideo() {
         clearInterval(findVideo);
         findVideo = null;
         log('Video is found');
+
+        // Guarantee video is resized for chat
+        resizeVideo()
         
         video_element.onpause = function() {
             if (!isRemote) {
@@ -957,6 +967,25 @@ function handleVideoActions(data) {
             log('video is sent play() function');
             break;
     }
-
+    // Reset video player if it is minified
+    if ($('#hudson-wrapper').hasClass('video_view--mini')) {
+        $('#hudson-wrapper').removeClass('video_view--mini');
+        $('#hudson-wrapper').addClass('video_view--theater');
+    }
     insertMessage(data, false);
+}
+
+function resizeVideo() {
+    if (newVid) {
+        if ($('#dplus-chat').width() !== 0) {
+            $('#hudson-wrapper').addClass('video-resize');
+            $('#hudson-wrapper').addClass('chat-active');
+            $('#hudson-wrapper').removeClass('chat-active-hidden');
+        } else {
+            $('#hudson-wrapper').removeClass('video-resize');
+            $('#hudson-wrapper').removeClass('chat-active');
+            $('#hudson-wrapper').addClass('chat-active-hidden');
+        }
+        newVid = null;
+    }
 }
