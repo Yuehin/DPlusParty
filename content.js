@@ -78,6 +78,19 @@ window.addEventListener('get_usrname', function() {
     });
 });
 
+window.addEventListener('save_askreview', function(e) {
+    chrome.storage.sync.set({ask_review: e.detail}, function() {
+    });
+});
+
+window.addEventListener('get_askreview', function() {
+    chrome.storage.sync.get(['ask_review'], function(result) {
+        if (result) {
+            window.dispatchEvent(new CustomEvent('set_askreview', {detail: result.ask_review}));
+        }
+    });
+});
+
 
 chrome.runtime.onMessage.addListener(
     function (request, sender, sendResponse) {

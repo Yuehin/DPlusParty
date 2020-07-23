@@ -135,7 +135,33 @@ a.kofi-button:active {
 :root {
     --chat-width: 300px;
     --toggle-width: 30px;
-    --z-Index: 9999999999;
+    --z-Index: 999;
+}
+
+.speech-bubble {
+	position: fixed;
+	background: #080808;
+    border-radius: .4em;
+    width: auto;
+    padding: 10px;
+    color: #4b4b4b;
+    z-index: calc(var(--z-Index) + 1);
+    margin: 20px;
+}
+
+.speech-bubble:after {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 20%;
+	width: 0;
+	height: 0;
+	border: 20px solid transparent;
+	border-bottom-color: #080808;
+	border-top: 0;
+	border-left: 0;
+	margin-left: -10px;
+	margin-top: -20px;
 }
 
 .selectable {
@@ -328,6 +354,19 @@ a.kofi-button:active {
     border-right: none;
     border-color: #5784a2;
     outline: none;
+}
+
+.text-btn {
+    background-color: #131313;
+    border: none;
+    border-radius: 5px;
+    padding: 5px;
+    color: #4b4b4b;
+    margin: 5px;
+}
+
+.text-btn:hover {
+    filter: brightness(130%);
 }
 
 .chat-btn {

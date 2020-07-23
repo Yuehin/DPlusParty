@@ -275,13 +275,13 @@ function isNewVid()
         mediaPlayer = null;
         newVideo = true;
         // Restore session
-        $('#hudson-wrapper').addClass('chat-active');
-        $('#hudson-wrapper').addClass('video-resize');
         window.location.hash = sessionID;
         currentURL = window.location.href;
         findVideo = setInterval(getVideo, 1000);
         clearInterval(newVid);
         newVid = null;
+        $('#hudson-wrapper').addClass('chat-active');
+        $('#hudson-wrapper').addClass('video-resize');
     }
 }
 
@@ -661,6 +661,14 @@ function toggleChat() {
     }
 }
 
+function onReview(okclicked) {
+    if (okclicked) {
+        window.open('https://chrome.google.com/webstore/detail/dplus-party/ckhlohlbolmihakbnlddceackadnodoe','_blank');
+    }
+    // save never ask again checkbox result
+    window.dispatchEvent(new CustomEvent('save_askreview', {detail: $('#neverask').is(':checked')}));
+    $('#review-bubble').fadeOut();
+}
 function injectChat() {
     //inject chat
     let chatHTML = 
@@ -671,7 +679,21 @@ function injectChat() {
             <svg id="chat-show" xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M11.67 3.87L9.9 2.1 0 12l9.9 9.9 1.77-1.77L3.54 12z"/><path d="M0 0h24v24H0z" fill="none"/></svg>
         </div>
         <div id="chat-header">
-            <div  class="dplus-title" onclick="window.open('https://chrome.google.com/webstore/detail/dplus-party/ckhlohlbolmihakbnlddceackadnodoe','_blank')">DPLUS PARTY</div>
+            <div>
+                <div  class="dplus-title" onclick="window.open('https://chrome.google.com/webstore/detail/dplus-party/ckhlohlbolmihakbnlddceackadnodoe','_blank')">DPLUS PARTY
+                </div>
+                <div id="review-bubble" class="speech-bubble" style="display:none;">
+                    <div>
+                        Enjoying DPlus Party? Consider writing a review! It really helps!
+                    </div>
+                    <button class="text-btn" id="no-rev-button" type="button" onclick="onReview(false)">Not Now</button>
+                    <button class="text-btn" id="yes-rev-button" type="button" style="background-color: #4a7490;
+                    color: #e4e4e4; float: right;" onclick="onReview(true)">OK!</button>
+                    <br>
+                    <input type="checkbox" id="neverask" style="margin: 5px;">
+                    <label for="neverask">Don't ask me again</label>
+                </div>
+            </div>
             <button class="chat-btn" id="profile-button" title="Change Nickname" type="button" onclick="changeUserName()">
                 <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 0 24 24" width="24"><path d="M12 5.9c1.16 0 2.1.94 2.1 2.1s-.94 2.1-2.1 2.1S9.9 9.16 9.9 8s.94-2.1 2.1-2.1m0 9c2.97 0 6.1 1.46 6.1 2.1v1.1H5.9V17c0-.64 3.13-2.1 6.1-2.1M12 4C9.79 4 8 5.79 8 8s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm0 9c-2.67 0-8 1.34-8 4v3h16v-3c0-2.66-5.33-4-8-4z"/><path d="M0 0h24v24H0z" fill="none"/></svg>
             </button>
@@ -783,6 +805,15 @@ function injectChat() {
         $('#chat-username').val(e.detail);
     });
     $('#chat-username').focus();
+
+    window.dispatchEvent(new Event('get_askreview'));
+    window.addEventListener('set_askreview', function(e) {
+        if (!e.detail) {
+            setTimeout(function (){
+                $('#review-bubble').fadeIn();
+            }, 900000);
+        }
+    });
 }
 
 getServers();
