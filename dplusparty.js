@@ -416,11 +416,15 @@ function join() {
     }
 
     window.dispatchEvent(new Event('joining'));
-    // Create connection to destination peer specified in the input 
+    // Create connection to host
+    connectToHost();
+}
+
+function connectToHost() {
     let key = window.location.hash.split('#')[1];
     // Try establishing a connection 3x just to be safe
     connTimeout = setInterval(function() {
-        if (connRepeatCount !== 0) {
+        if (connRepeatCount !== -1) {
             connRepeatCount--;
             // last resort, reconnect Peer
             if (connRepeatCount == 0) {
@@ -437,6 +441,9 @@ function join() {
                 connTimeout = null;
                 log('Connected to: ' + conn.peer);
                 injectChat();
+                let msgActionHTML = 
+                '<div class="chat-action">Connected to Host</div></div>';
+                $('#chat-messages').append(msgActionHTML);
                 if (!video_element.paused) {
                     // Pause the video
                     mediaPlayer.dispatchEvent(spaceKeyPressEvent);
@@ -484,10 +491,12 @@ function join() {
 
             conn.on('close', function () {
                 let msgActionHTML = 
-                '<div class="chat-action">Host Disconnected</div></div>';
+                '<div class="chat-action">Host Disconnected, attempting to reconnect...</div></div>';
                 $('#chat-messages').append(msgActionHTML);
+                // attempt to reconnect to host
+                connRepeatCount = 3;
                 updateNumberofParticipants(0);
-                log('Connection closed');
+                connectToHost(key);
             });
         } else {
             clearInterval(connTimeout);
