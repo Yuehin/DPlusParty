@@ -323,7 +323,7 @@ a.kofi-button:active {
     font-size: 12px;
 }
 
-.chat-action {
+.chat-action, .chat-joined {
     background: #0a0a0a;
     color: #4b4b4b;
     padding: 10px;

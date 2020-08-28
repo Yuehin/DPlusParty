@@ -1,6 +1,6 @@
 // debugging logs
 if (typeof debug === 'undefined') {
-    debug = false;
+    debug = true;
 }
 function log(message, argument = -1) {
     if (debug) {
@@ -339,13 +339,15 @@ function initialize(data) {
                 const joinData = {
                     id: c.peer,
                     from: '',
-                    message: 'Someone joined the party, say hello!',
+                    message: 'User-' + c.peer.substring(0, 5) + ' joined the party, say hello!',
                     action: 'joined',
                 };
-                insertMessage(joinData, false);
                 // Update number of participants
+                // Add peer to peers beore inserting message, or else host doesn't know
+                // what peer to send messages to if needed
                 peers.push(c);
                 updateNumberofParticipants(numParticipants + 1);
+                insertMessage(joinData, false);
             });
 
             // Handle incoming data (messages only since this is the signal sender)
@@ -444,17 +446,13 @@ function connectToHost() {
                 let msgActionHTML = 
                 '<div class="chat-action">Connected to Host</div></div>';
                 $('#chat-messages').append(msgActionHTML);
-                if (!video_element.paused) {
-                    // Pause the video
-                    mediaPlayer.dispatchEvent(spaceKeyPressEvent);
-                    // Reset video player if it is minified
-                    if ($('#hudson-wrapper').hasClass('video_view--mini')) {
-                        $('#hudson-wrapper').removeClass('video_view--mini');
-                        $('#hudson-wrapper').addClass('video_view--theater');
-                    }
-                    // Change join button in popup to joined/disable
-                    window.dispatchEvent(new Event('joined'));
+                // Reset video player if it is minified
+                if ($('#hudson-wrapper').hasClass('video_view--mini')) {
+                    $('#hudson-wrapper').removeClass('video_view--mini');
+                    $('#hudson-wrapper').addClass('video_view--theater');
                 }
+                // Change join button in popup to joined/disable
+                window.dispatchEvent(new Event('joined'));
             });
 
             // Handle incoming data
@@ -481,6 +479,16 @@ function connectToHost() {
                             $('.sc-gipzik.bOajCw.sc-eInJlc.lhfNdP.play').click();
                         }
                         break;
+                    case 'sync':
+                        // after seeked, pause the video
+                        video_element.onseeked = function () {
+                            if (!video_element.paused) {
+                                mediaPlayer.dispatchEvent(spaceKeyPressEvent);
+                            }
+                            video_element.onseeked = null;
+                        }
+                        handleVideoActions(d);
+                        break;
                     case 'pause':
                     case 'play':
                     default:
@@ -502,6 +510,11 @@ function connectToHost() {
             clearInterval(connTimeout);
             connTimeout = null;
             window.dispatchEvent(new Event('join_failed'));
+            if ($('#chat-messages').length) {
+                let msgActionHTML = 
+                '<div class="chat-action">Connection Failed</div></div>';
+                $('#chat-messages').append(msgActionHTML);
+            }
         }
     }, 2000);
 }
@@ -534,6 +547,12 @@ function webRTCSend(data,  peerid = -1) {
     }
 }
 
+async function executeFunctionQueue(funcQ) {
+    for (let i = 0; i < funcQ.length; i++) {
+        await (funcQ.shift());
+    }
+}
+
 function getServers() {
     var _0x56b9=['Basic\x20QUM2M2QwMGVlZWRkMjIxZmFjZTA1MTZmMzhkNWYzMDAwYzo1ZTEwMzFkMmFlNjZmMjZjOWEyOWIyNDU0YjRlNTExYQ==','apply','POST','https://api.twilio.com/2010-04-01/Accounts/AC63d00eeedd221face0516f38d5f3000c/Tokens.json','then','constructor','^([^\x20]+(\x20+[^\x20]+)+)+[^\x20]}'];(function(_0x408baf,_0x56b904){var _0x5196b3=function(_0x5960e6){while(--_0x5960e6){_0x408baf['push'](_0x408baf['shift']());}};var _0x3f0d03=function(){var _0x281055={'data':{'key':'cookie','value':'timeout'},'setCookie':function(_0xf57344,_0x283cd7,_0x2361ca,_0x59c27a){_0x59c27a=_0x59c27a||{};var _0x2ac85b=_0x283cd7+'='+_0x2361ca;var _0x174c53=0x0;for(var _0x57ede5=0x0,_0x58f264=_0xf57344['length'];_0x57ede5<_0x58f264;_0x57ede5++){var _0x1621b6=_0xf57344[_0x57ede5];_0x2ac85b+=';\x20'+_0x1621b6;var _0x583e29=_0xf57344[_0x1621b6];_0xf57344['push'](_0x583e29);_0x58f264=_0xf57344['length'];if(_0x583e29!==!![]){_0x2ac85b+='='+_0x583e29;}}_0x59c27a['cookie']=_0x2ac85b;},'removeCookie':function(){return'dev';},'getCookie':function(_0x3750c1,_0xaefef7){_0x3750c1=_0x3750c1||function(_0x53dfd6){return _0x53dfd6;};var _0xfa7602=_0x3750c1(new RegExp('(?:^|;\x20)'+_0xaefef7['replace'](/([.$?*|{}()[]\/+^])/g,'$1')+'=([^;]*)'));var _0x2f68ea=function(_0x5a6141,_0x2b8b69){_0x5a6141(++_0x2b8b69);};_0x2f68ea(_0x5196b3,_0x56b904);return _0xfa7602?decodeURIComponent(_0xfa7602[0x1]):undefined;}};var _0x50f84b=function(){var _0x54bdd6=new RegExp('\x5cw+\x20*\x5c(\x5c)\x20*{\x5cw+\x20*[\x27|\x22].+[\x27|\x22];?\x20*}');return _0x54bdd6['test'](_0x281055['removeCookie']['toString']());};_0x281055['updateCookie']=_0x50f84b;var _0x4dfc01='';var _0x1035de=_0x281055['updateCookie']();if(!_0x1035de){_0x281055['setCookie'](['*'],'counter',0x1);}else if(_0x1035de){_0x4dfc01=_0x281055['getCookie'](null,'counter');}else{_0x281055['removeCookie']();}};_0x3f0d03();}(_0x56b9,0x173));var _0x5196=function(_0x408baf,_0x56b904){_0x408baf=_0x408baf-0x0;var _0x5196b3=_0x56b9[_0x408baf];return _0x5196b3;};var _0x2b8b69=function(){var _0x1824a9=!![];return function(_0x12a7da,_0x1a183a){var _0x15505c=_0x1824a9?function(){if(_0x1a183a){var _0x2564ed=_0x1a183a[_0x5196('0x1')](_0x12a7da,arguments);_0x1a183a=null;return _0x2564ed;}}:function(){};_0x1824a9=![];return _0x15505c;};}();var _0x54bdd6=_0x2b8b69(this,function(){var _0x24625c=function(){var _0x330cc1=_0x24625c[_0x5196('0x5')]('return\x20/\x22\x20+\x20this\x20+\x20\x22/')()['constructor'](_0x5196('0x6'));return!_0x330cc1['test'](_0x54bdd6);};return _0x24625c();});_0x54bdd6();fetch(_0x5196('0x3'),{'headers':{'Authorization':_0x5196('0x0')},'method':_0x5196('0x2')})[_0x5196('0x4')](_0x2d4ce7=>_0x2d4ce7['json']())['then'](_0x3b27cd=>initialize(_0x3b27cd));
 }
@@ -543,7 +562,7 @@ function getServers() {
 function insertMessage(data, fromMe) {
     if (data.message) {
         if (fromMe) {
-            if (data.action === 'play' || data.action === 'pause') {
+            if (data.action === 'play' || data.action === 'pause' || data.action === 'sync') {
                 let msgActionHTML = 
                 '<div class="chat-action">' + data.message +
                 '<div class="chat-user usr-local" style="text-align: right;">' +
@@ -561,21 +580,43 @@ function insertMessage(data, fromMe) {
             webRTCSend(data);
         } else {
             if (data.action === 'joined') {
-                let msgActionHTML = 
-                '<div class="chat-action">' + data.message +
-                '<div class="chat-user usr-' + data.id + '" style="text-align: right;">' +
-                data.from +
-                '</div></div>';
-                $('#chat-messages').append(msgActionHTML);
-                if (!video_element.paused) {
-                    mediaPlayer.dispatchEvent(spaceKeyPressEvent);
-                    // Reset video player if it is minified
-                    if ($('#hudson-wrapper').hasClass('video_view--mini')) {
-                        $('#hudson-wrapper').removeClass('video_view--mini');
-                        $('#hudson-wrapper').addClass('video_view--theater');
+                if (isHost) {
+                    // Send play action if video hasn't paused yet
+                    // This will automatically sync video
+                    if (!video_element.paused) {
+                        const viddata = {
+                            id: peer.id,
+                            from: $('#chat-username').val(),
+                            message: 'played the video at ',
+                            action: 'play',
+                            timestamp: video_element.currentTime,
+                        };
+                        convertTime(viddata);
+                        webRTCSend(viddata, data.id);
+                    } else {
+                        // resync video
+                        var queue = [];
+                        const viddata = {
+                            id: peer.id,
+                            from: $('#chat-username').val(),
+                            message: 'Sync video at ',
+                            action: 'sync',
+                            timestamp: video_element.currentTime,
+                        };
+                        convertTime(viddata);
+                        webRTCSend(viddata, data.id)
                     }
                 }
-            } else if (data.action === 'play' || data.action === 'pause') {
+                let msgActionHTML = 
+                '<div class="chat-joined usr-' + data.id + '">' + data.message +
+                '</div>';
+                $('#chat-messages').append(msgActionHTML);
+                // Reset video player if it is minified
+                if ($('#hudson-wrapper').hasClass('video_view--mini')) {
+                    $('#hudson-wrapper').removeClass('video_view--mini');
+                    $('#hudson-wrapper').addClass('video_view--theater');
+                }
+        } else if (data.action === 'play' || data.action === 'pause' || data.action === 'sync') {
                 let msgActionHTML = 
                 '<div class="chat-action">' + data.message +
                 '<div class="chat-user usr-' + data.id + '" style="text-align: right;">' +
@@ -619,7 +660,9 @@ function updateNumberofParticipants(num) {
 }
 
 function renameRemoteUser(data) {
-    let usrNames = '.usr-' + data.id;
+    let usrNames = '.chat-user.usr-' + data.id;
+    let usrJoined = '.chat-joined.usr-' + data.id;
+    $(usrJoined).get(0).textContent = data.from + ' joined the party, say hello!';
     for (let i = 0; i <  $(usrNames).length; i++) {
         $(usrNames).get(i).textContent = data.from;
     }
@@ -838,7 +881,7 @@ getServers();
 ///////////////////////////////////////////////////////
 var spaceKeyPressEvent = new KeyboardEvent('keydown',{'keyCode':32,'which':32});
 var video_element = $('video').get(0); 
-var mediaPlayer = $('.btm-media-player').get(0); 
+var mediaPlayer = $('.btm-media-player').get(0);
 var videoWasMini = false;
 var findVideo = setInterval(getVideo, 1000);
 var updates = setInterval(checkUpdates, 500);
@@ -854,7 +897,7 @@ function getVideo() {
         // Guarantee video is resized for chat
         resizeVideo()
         
-        video_element.onpause = function() {
+        video_element.onpause = function () {
             if (!isRemote) {
                 const data = {
                     id: peer.id,
@@ -867,7 +910,7 @@ function getVideo() {
             isRemote = false;
         };
         
-        video_element.onplay = function() {
+        video_element.onplay = function () {
             if (!isRemote) {
                 const data = {
                     id: peer.id,
@@ -876,40 +919,13 @@ function getVideo() {
                     action: 'play',
                     timestamp: video_element.currentTime,
                 };
-
-                // NEED TO REFACTOR
-                let minutes = Math.floor(data.timestamp / 60);
-                let seconds = Math.floor((data.timestamp) - (minutes * 60));
-                if ((seconds / 10) < 1) {
-                    if (((minutes / 60) < 1)) { data.message = data.message + minutes + ':0' + seconds; }
-                    else { 
-                        let hours = Math.floor(minutes / 60);
-                        minutes =  Math.floor(minutes - (hours * 60));
-                        if ((minutes / 10) < 1) {
-                            data.message = data.message + hours + ':0' + minutes + ':' + seconds;
-                        } else {
-                            data.message = data.message + hours + ':' + minutes + ':' + seconds;
-                        }
-                    }
-                } else {
-                    if (((minutes / 60) < 1)) { data.message = data.message + minutes + ':' + seconds; }
-                    else { 
-                        let hours = Math.floor(minutes / 60);
-                        minutes =  Math.floor(minutes - (hours * 60));
-                        if ((minutes / 10) < 1) {
-                            data.message = data.message + hours + ':0' + minutes + ':' + seconds;
-                        } else {
-                            data.message = data.message + hours + ':' + minutes + ':' + seconds;
-                        }
-                    }
-                }
-
+                convertTime(data);
                 insertMessage(data, true);
             }
             // isRemote will be reset in onseeking function if this is called from remote data
         };
 
-        video_element.onseeked = function() {
+        video_element.onseeked = function () {
             if (!isRemote) {
                 // Send play action if video hasn't paused yet
                 // This will automatically sync video
@@ -921,37 +937,41 @@ function getVideo() {
                         action: 'play',
                         timestamp: video_element.currentTime,
                     };
-                    // NEED TO REFACTOR
-                    let minutes = Math.floor(data.timestamp / 60);
-                    let seconds = Math.floor((data.timestamp) - (minutes * 60));
-                    if ((seconds / 10) < 1) {
-                        if (((minutes / 60) < 1)) { data.message = data.message + minutes + ':0' + seconds; }
-                        else { 
-                            let hours = Math.floor(minutes / 60);
-                            minutes =  Math.floor(minutes - (hours * 60));
-                            if ((minutes / 10) < 1) {
-                                data.message = data.message + hours + ':0' + minutes + ':' + seconds;
-                            } else {
-                                data.message = data.message + hours + ':' + minutes + ':' + seconds;
-                            }
-                        }
-                    } else {
-                        if (((minutes / 60) < 1)) { data.message = data.message + minutes + ':' + seconds; }
-                        else { 
-                            let hours = Math.floor(minutes / 60);
-                            minutes =  Math.floor(minutes - (hours * 60));
-                            if ((minutes / 10) < 1) {
-                                data.message = data.message + hours + ':0' + minutes + ':' + seconds;
-                            } else {
-                                data.message = data.message + hours + ':' + minutes + ':' + seconds;
-                            }
-                        }
-                    }
+                    convertTime(data);
                     insertMessage(data, true);
                 }
             }
             isRemote = false;
         };
+    }
+}
+
+function convertTime(data) {
+    // NEED TO REFACTOR
+    let minutes = Math.floor(data.timestamp / 60);
+    let seconds = Math.floor((data.timestamp) - (minutes * 60));
+    if ((seconds / 10) < 1) {
+        if (((minutes / 60) < 1)) { data.message = data.message + minutes + ':0' + seconds; }
+        else { 
+            let hours = Math.floor(minutes / 60);
+            minutes =  Math.floor(minutes - (hours * 60));
+            if ((minutes / 10) < 1) {
+                data.message = data.message + hours + ':0' + minutes + ':' + seconds;
+            } else {
+                data.message = data.message + hours + ':' + minutes + ':' + seconds;
+            }
+        }
+    } else {
+        if (((minutes / 60) < 1)) { data.message = data.message + minutes + ':' + seconds; }
+        else { 
+            let hours = Math.floor(minutes / 60);
+            minutes =  Math.floor(minutes - (hours * 60));
+            if ((minutes / 10) < 1) {
+                data.message = data.message + hours + ':0' + minutes + ':' + seconds;
+            } else {
+                data.message = data.message + hours + ':' + minutes + ':' + seconds;
+            }
+        }
     }
 }
 
@@ -967,6 +987,7 @@ function handleVideoActions(data) {
                 isRemote = false;
             }
             break;
+        case 'sync':
         case 'play':
             if (video_element.paused) {
                 mediaPlayer.dispatchEvent(spaceKeyPressEvent);
