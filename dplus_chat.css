@@ -260,7 +260,7 @@ a.kofi-button:active {
 
 #chat-box {
     background-color: #131313;
-    height: calc(100% - 155px);
+    height: calc(100% - 135px);
     position: relative;
     width: 100%;
 }
