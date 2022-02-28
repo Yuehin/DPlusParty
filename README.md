@@ -8,7 +8,8 @@ Features:
 - Easy sharing with friends on social media!
 - Binge watch together with your favorite shows!
 - Watch Disney+ (Disney Plus) with anyone around the world!
-
+- 
+![1] ![2] ![3] ![4]
 [1]: https://github.com/Yuehin/DPlusParty/blob/master/dplus_marquee2.jpg
 [2]: https://github.com/Yuehin/DPlusParty/blob/master/dplus_marquee3.jpg
 [3]: https://github.com/Yuehin/DPlusParty/blob/master/dplus_promo1.jpg
