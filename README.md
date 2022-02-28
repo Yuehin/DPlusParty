@@ -10,9 +10,9 @@ Features:
 - Watch Disney+ (Disney Plus) with anyone around the world!
 - 
 ![1] ![2] ![3] ![4]
+
 [1]: https://github.com/Yuehin/DPlusParty/blob/master/dplus_marquee2.jpg
 [2]: https://github.com/Yuehin/DPlusParty/blob/master/dplus_marquee3.jpg
-[3]: https://github.com/Yuehin/DPlusParty/blob/master/dplus_promo1.jpg
 [4]: https://github.com/Yuehin/DPlusParty/blob/master/dplus_promo2.jpg
 
 How to Use:
